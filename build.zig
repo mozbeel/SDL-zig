@@ -50,11 +50,12 @@ pub fn build(b: *std.Build) void {
     var linux = false;
     var linux_deps_values: ?LinuxDepsValues = null;
     var macos = false;
-    var macos_system_include_path: ?std.Build.LazyPath = null;
-    var macos_system_framework_path: ?std.Build.LazyPath = null;
-    var macos_library_path: ?std.Build.LazyPath = null;
     var emscripten = false;
-    var emscripten_system_include_path: ?std.Build.LazyPath = null;
+    var system_include_path: ?std.Build.LazyPath = null;
+    var system_framework_path: ?std.Build.LazyPath = null;
+    var library_path: ?std.Build.LazyPath = null;
+    var glibc = false;
+    var musl = false;
     switch (target.result.os.tag) {
         .windows => {
             windows = true;
@@ -64,13 +65,15 @@ pub fn build(b: *std.Build) void {
             if (b.lazyImport(@This(), "sdl_linux_deps")) |build_zig| {
                 linux_deps_values = LinuxDepsValues.fromBuildZig(b, build_zig);
             }
+            glibc = target.result.abi.isGnu();
+            musl = target.result.abi.isMusl();
         },
         .macos => {
             macos = true;
             if (b.sysroot) |sysroot| {
-                macos_system_include_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "usr/include" }) };
-                macos_system_framework_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) };
-                macos_library_path = .{ .cwd_relative = "/usr/lib" }; // ???
+                system_include_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "usr/include" }) };
+                system_framework_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) };
+                library_path = .{ .cwd_relative = "/usr/lib" }; // ???
             } else if (!target.query.isNative()) {
                 std.log.err("'--sysroot' is required when building SDL for non-native macOS targets", .{});
                 std.process.exit(1);
@@ -79,7 +82,7 @@ pub fn build(b: *std.Build) void {
         .emscripten => {
             emscripten = true;
             if (b.sysroot) |sysroot| {
-                emscripten_system_include_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "include" }) };
+                system_include_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "include" }) };
             } else {
                 std.log.err("'--sysroot' is required when building SDL for Emscripten", .{});
                 std.process.exit(1);
@@ -145,8 +148,8 @@ pub fn build(b: *std.Build) void {
             .HAVE_WCSTOL = windows or linux or macos or emscripten,
             .HAVE_STRLEN = windows or linux or macos or emscripten,
             .HAVE_STRNLEN = windows or linux or macos or emscripten,
-            .HAVE_STRLCPY = macos or emscripten,
-            .HAVE_STRLCAT = macos or emscripten,
+            .HAVE_STRLCPY = linux and musl or macos or emscripten,
+            .HAVE_STRLCAT = linux and musl or macos or emscripten,
             .HAVE_STRPBRK = windows or linux or macos or emscripten,
             .HAVE__STRREV = windows,
             .HAVE_INDEX = linux or macos or emscripten,
@@ -197,10 +200,10 @@ pub fn build(b: *std.Build) void {
             .HAVE_FMOD = windows or linux or macos or emscripten,
             .HAVE_FMODF = windows or linux or macos or emscripten,
             .HAVE_ISINF = windows or linux or macos or emscripten,
-            .HAVE_ISINFF = linux or emscripten,
+            .HAVE_ISINFF = linux and !musl or emscripten,
             .HAVE_ISINF_FLOAT_MACRO = windows or linux or macos or emscripten,
             .HAVE_ISNAN = windows or linux or macos or emscripten,
-            .HAVE_ISNANF = linux or emscripten,
+            .HAVE_ISNANF = linux and !musl or emscripten,
             .HAVE_ISNAN_FLOAT_MACRO = windows or linux or macos or emscripten,
             .HAVE_LOG = windows or linux or macos or emscripten,
             .HAVE_LOGF = windows or linux or macos or emscripten,
@@ -225,9 +228,9 @@ pub fn build(b: *std.Build) void {
             .HAVE_TRUNC = windows or linux or macos or emscripten,
             .HAVE_TRUNCF = windows or linux or macos or emscripten,
             .HAVE__FSEEKI64 = windows,
-            .HAVE_FOPEN64 = windows or linux or emscripten,
+            .HAVE_FOPEN64 = windows or linux and !musl or emscripten,
             .HAVE_FSEEKO = windows or linux or macos or emscripten,
-            .HAVE_FSEEKO64 = windows or linux or emscripten,
+            .HAVE_FSEEKO64 = windows or linux and !musl or emscripten,
             .HAVE_MEMFD_CREATE = linux,
             .HAVE_POSIX_FALLOCATE = linux or emscripten,
             .HAVE_SIGACTION = linux or macos or emscripten,
@@ -581,24 +584,25 @@ pub fn build(b: *std.Build) void {
     if (linux_deps_values) |deps_values| {
         sdl_mod.addIncludePath(deps_values.dependency.path("src"));
         sdl_mod.addSystemIncludePath(deps_values.dependency.path("include"));
-        if (target.result.cpu.arch == .x86_64 and target.result.abi.isGnu()) {
+        // Currently, the only difference between these two sets of target-specific headers
+        // is that the x86_64 one defines G_VA_COPY_AS_ARRAY and the aarch64 one doesn't.
+        if (target.result.cpu.arch == .x86_64 and glibc) {
             sdl_mod.addSystemIncludePath(deps_values.dependency.path("include/x86_64-linux-gnu"));
         }
-        if (target.result.cpu.arch == .aarch64 and target.result.abi.isGnu()) {
+        // TODO: musl targets can piggyback off of the aarch64-linux-gnu headers for now because
+        // they are identical to their x86_64-linux-musl and aarch64-linux-musl equivalents.
+        if (target.result.cpu.arch == .aarch64 or target.result.cpu.arch == .x86_64 and musl) {
             sdl_mod.addSystemIncludePath(deps_values.dependency.path("include/aarch64-linux-gnu"));
         }
     }
-    if (macos_system_include_path) |path| {
+    if (system_include_path) |path| {
         sdl_mod.addSystemIncludePath(path);
     }
-    if (macos_system_framework_path) |path| {
+    if (system_framework_path) |path| {
         sdl_mod.addSystemFrameworkPath(path);
     }
-    if (macos_library_path) |path| {
+    if (library_path) |path| {
         sdl_mod.addLibraryPath(path);
-    }
-    if (emscripten_system_include_path) |path| {
-        sdl_mod.addSystemIncludePath(path);
     }
 
     var sdl_c_flags: std.BoundedArray([]const u8, common_c_flags.len + 3) = .{};
@@ -1301,7 +1305,7 @@ pub fn build(b: *std.Build) void {
     sdl_test_mod.addConfigHeader(build_config_h);
     sdl_test_mod.addConfigHeader(revision_h);
     sdl_test_mod.addIncludePath(b.path("include"));
-    if (emscripten_system_include_path) |path| {
+    if (system_include_path) |path| {
         sdl_test_mod.addSystemIncludePath(path);
     }
 
