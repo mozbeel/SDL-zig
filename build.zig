@@ -3,9 +3,9 @@
 
 const std = @import("std");
 
-pub const version: std.SemanticVersion = .{ .major = 3, .minor = 2, .patch = 14 };
+pub const version: std.SemanticVersion = .{ .major = 3, .minor = 2, .patch = 16 };
 const formatted_version = std.fmt.comptimePrint("SDL3-{}", .{version});
-pub const vendor_info = "https://github.com/castholm/SDL 0.2.3";
+pub const vendor_info = "https://github.com/castholm/SDL 0.2.4";
 pub const revision = formatted_version ++ " (" ++ vendor_info ++ ")";
 
 pub fn build(b: *std.Build) void {
