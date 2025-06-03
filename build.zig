@@ -25,16 +25,45 @@ pub fn build(b: *std.Build) void {
         "strip",
         "Strip debug symbols (default: varies)",
     );
+    const sanitize_c = b.option(
+        enum { off, trap, full }, // TODO: Change to std.zig.SanitizeC after 0.15
+        "sanitize_c",
+        "Detect C undefined behavior (default: varies)",
+    );
+    const legacy_sanitize_c_field = @FieldType(std.Build.Module.CreateOptions, "sanitize_c") == ?bool;
+    const resolved_sanitize_c = if (sanitize_c) |x| switch (legacy_sanitize_c_field) {
+        true => switch (x) {
+            .off => false,
+            .trap, .full => true,
+        },
+        false => @as(std.zig.SanitizeC, switch (x) {
+            .off => .off,
+            .trap => .trap,
+            .full => .full,
+        }),
+    } else null;
     const pic = b.option(
         bool,
         "pic",
         "Produce position-independent code (default: varies)",
     );
     const lto = b.option(
-        bool,
+        enum { true, false, none, full, thin }, // TODO: Change to std.zig.LtoMode after 0.15
         "lto",
         "Perform link time optimization (default: varies)",
     );
+    const legacy_lto_field = !@hasField(std.Build.Step.Compile, "lto");
+    const resolved_lto = if (lto) |x| switch (legacy_lto_field) {
+        true => switch (x) {
+            .false, .none => false,
+            .true, .full, .thin => true,
+        },
+        false => @as(std.zig.LtoMode, switch (x) {
+            .false, .none => .none,
+            .true, .full => .full,
+            .thin => .thin,
+        }),
+    } else null;
     const emscripten_pthreads = b.option(
         bool,
         "emscripten_pthreads",
@@ -544,6 +573,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
         .strip = strip,
+        .sanitize_c = resolved_sanitize_c,
         .pic = pic,
     });
     const sdl_lib = b.addLibrary(.{
@@ -557,7 +587,11 @@ pub fn build(b: *std.Build) void {
         },
         .use_llvm = if (emscripten) true else null,
     });
-    sdl_lib.want_lto = lto;
+    if (legacy_lto_field) {
+        sdl_lib.want_lto = resolved_lto;
+    } else {
+        sdl_lib.lto = resolved_lto;
+    }
 
     sdl_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
     sdl_mod.addCMacro("SDL_BUILD_MAJOR_VERSION", std.fmt.comptimePrint("{}", .{version.major}));
@@ -806,6 +840,7 @@ pub fn build(b: *std.Build) void {
                 .optimize = optimize,
                 .link_libc = true,
                 .strip = strip,
+                .sanitize_c = resolved_sanitize_c,
                 .pic = pic,
             });
             const sdl_uclibc_lib = b.addLibrary(.{
@@ -813,7 +848,11 @@ pub fn build(b: *std.Build) void {
                 .name = "SDL_uclib",
                 .root_module = sdl_uclibc_mod,
             });
-            sdl_uclibc_lib.want_lto = lto;
+            if (legacy_lto_field) {
+                sdl_uclibc_lib.want_lto = resolved_lto;
+            } else {
+                sdl_uclibc_lib.lto = resolved_lto;
+            }
 
             sdl_uclibc_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
 
@@ -1292,6 +1331,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
         .strip = strip,
+        .sanitize_c = resolved_sanitize_c,
         .pic = pic,
     });
     const sdl_test_lib = b.addLibrary(.{
@@ -1300,7 +1340,11 @@ pub fn build(b: *std.Build) void {
         .root_module = sdl_test_mod,
         .use_llvm = if (emscripten) true else null,
     });
-    sdl_test_lib.want_lto = lto;
+    if (legacy_lto_field) {
+        sdl_test_lib.want_lto = resolved_lto;
+    } else {
+        sdl_test_lib.lto = resolved_lto;
+    }
 
     sdl_test_mod.addConfigHeader(build_config_h);
     sdl_test_mod.addConfigHeader(revision_h);
