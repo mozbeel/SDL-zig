@@ -3,9 +3,9 @@
 
 const std = @import("std");
 
-pub const version: std.SemanticVersion = .{ .major = 3, .minor = 2, .patch = 16 };
-const formatted_version = std.fmt.comptimePrint("SDL3-{}", .{version});
-pub const vendor_info = "https://github.com/castholm/SDL 0.2.4";
+pub const version: std.SemanticVersion = .{ .major = 3, .minor = 2, .patch = 18 };
+const formatted_version = std.fmt.comptimePrint("SDL3-{d}.{d}.{d}", .{ version.major, version.minor, version.patch }); // TODO: Change to {f} after 0.15
+pub const vendor_info = "https://github.com/castholm/SDL 0.2.5";
 pub const revision = formatted_version ++ " (" ++ vendor_info ++ ")";
 
 pub fn build(b: *std.Build) void {
@@ -594,9 +594,9 @@ pub fn build(b: *std.Build) void {
     }
 
     sdl_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
-    sdl_mod.addCMacro("SDL_BUILD_MAJOR_VERSION", std.fmt.comptimePrint("{}", .{version.major}));
-    sdl_mod.addCMacro("SDL_BUILD_MINOR_VERSION", std.fmt.comptimePrint("{}", .{version.minor}));
-    sdl_mod.addCMacro("SDL_BUILD_MICRO_VERSION", std.fmt.comptimePrint("{}", .{version.patch}));
+    sdl_mod.addCMacro("SDL_BUILD_MAJOR_VERSION", std.fmt.comptimePrint("{d}", .{version.major}));
+    sdl_mod.addCMacro("SDL_BUILD_MINOR_VERSION", std.fmt.comptimePrint("{d}", .{version.minor}));
+    sdl_mod.addCMacro("SDL_BUILD_MICRO_VERSION", std.fmt.comptimePrint("{d}", .{version.patch}));
     switch (sdl_lib.linkage.?) {
         .static => {
             sdl_mod.addCMacro("SDL_STATIC_LIB", "1");
