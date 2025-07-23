@@ -79,6 +79,8 @@ pub fn build(b: *std.Build) void {
     var linux = false;
     var linux_deps_values: ?LinuxDepsValues = null;
     var macos = false;
+    var android = false;
+    var ios = false;
     var emscripten = false;
     var system_include_path: ?std.Build.LazyPath = null;
     var system_framework_path: ?std.Build.LazyPath = null;
@@ -90,12 +92,18 @@ pub fn build(b: *std.Build) void {
             windows = true;
         },
         .linux => {
-            linux = true;
-            if (b.lazyImport(@This(), "sdl_linux_deps")) |build_zig| {
-                linux_deps_values = LinuxDepsValues.fromBuildZig(b, build_zig);
+            if (target.result.abi == .android or target.result.abi == .androideabi) {
+                android = true;
+                @panic("Android Not supported");
+            } else {
+                linux = true;
+                if (b.lazyImport(@This(), "sdl_linux_deps")) |build_zig| {
+                    linux_deps_values = LinuxDepsValues.fromBuildZig(b, build_zig);
+                }
+                glibc = target.result.abi.isGnu();
+                musl = target.result.abi.isMusl();
+
             }
-            glibc = target.result.abi.isGnu();
-            musl = target.result.abi.isMusl();
         },
         .macos => {
             macos = true;
@@ -107,6 +115,10 @@ pub fn build(b: *std.Build) void {
                 std.log.err("'--sysroot' is required when building SDL for non-native macOS targets", .{});
                 std.process.exit(1);
             }
+        },
+        .ios => {
+            ios = true;
+            @panic("iOS Not supported");
         },
         .emscripten => {
             emscripten = true;
