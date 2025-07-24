@@ -390,7 +390,7 @@ pub fn build(b: *std.Build) !void {
             .SDL_LIBUSB_DYNAMIC = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.libusb_soname}) else "",
             .SDL_UDEV_DYNAMIC = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.libudev_soname}) else "",
             .SDL_PROCESS_DUMMY = emscripten,
-            .SDL_PROCESS_POSIX = linux or macos,
+            .SDL_PROCESS_POSIX = linux or macos or android,
             .SDL_PROCESS_WINDOWS = windows,
             .SDL_PROCESS_ANDROID = android,
             .SDL_SENSOR_ANDROID = android,
