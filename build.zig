@@ -999,7 +999,7 @@ pub fn build(b: *std.Build) !void {
         sdl_mod.addCMacro("_XOPEN_SOURCE", "700");
         sdl_mod.addCMacro("_GNU_SOURCE", "1");
 
-        sdl_c_flags.append("-fno-sanitize=undefined");
+        try sdl_c_flags.append("-fno-sanitize=undefined");
 
         sdl_mod.addCSourceFiles(.{
             .flags = sdl_c_flags.slice(),
