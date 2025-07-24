@@ -996,7 +996,6 @@ pub fn build(b: *std.Build) !void {
         sdl_mod.addCMacro("_POSIX_C_SOURCE", "200809L");
         sdl_mod.addCMacro("_XOPEN_SOURCE", "700");
         sdl_mod.addCMacro("_GNU_SOURCE", "1");
-        sdl_mod.addCMacro("__ANDROID_API__", "35");
 
         sdl_mod.addCSourceFiles(.{
             .flags = sdl_c_flags.slice(),
