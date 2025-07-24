@@ -588,6 +588,7 @@ pub fn build(b: *std.Build) !void {
         .sanitize_c = resolved_sanitize_c,
         .pic = pic,
     });
+
     const sdl_lib = b.addLibrary(.{
         .linkage = if (emscripten) .static else (if (android) .dynamic else preferred_linkage),
         .name = "SDL3",
@@ -1065,7 +1066,25 @@ pub fn build(b: *std.Build) !void {
         // This is needed for "src/render/opengles/SDL_render_gles.c" to compile
         sdl_mod.addCMacro("GL_GLEXT_PROTOTYPES", "1");
 
-
+                // Add Java files to dependency
+        const java_dir = b.path("android/java");
+        const java_files: []const []const u8 = &.{
+            "HIDDevice.java",
+            "HIDDeviceBLESteamController.java",
+            "HIDDeviceManager.java",
+            "HIDDeviceUSB.java",
+            "SDL.java",
+            "SDLActivity.java",
+            "SDLAudioManager.java",
+            "SDLControllerManager.java",
+            "SDLDummyEdit.java",
+            "SDLInputConnection.java",
+            "SDLSurface.java",
+        };
+        const java_write_files = b.addNamedWriteFiles("sdljava");
+        for (java_files) |java_file_basename| {
+            _ = java_write_files.addCopyFile(java_dir.path(b, java_file_basename), java_file_basename);
+        }
     }
 
     if (linux and !android) {
