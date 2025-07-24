@@ -998,9 +998,6 @@ pub fn build(b: *std.Build) !void {
         sdl_mod.addCMacro("_XOPEN_SOURCE", "700");
         sdl_mod.addCMacro("_GNU_SOURCE", "1");
 
-        sdl_lib.want_ubsan = false;
-        sdl_lib.want_asan = false;
-
         sdl_mod.addCSourceFiles(.{
             .flags = sdl_c_flags.slice(),
             .files = &.{
