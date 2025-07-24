@@ -141,6 +141,7 @@ pub fn build(b: *std.Build) !void {
             .style = .{ .cmake = b.path("include/build_config/SDL_build_config.h.cmake") },
             .include_path = "SDL_build_config.h",
         }, .{
+            ._GNU_SOURCE = android,
             .HAVE_GCC_ATOMICS = windows or linux or macos or emscripten or android,
             .HAVE_GCC_SYNC_LOCK_TEST_AND_SET = false,
             .SDL_DISABLE_ALLOCA = false,
@@ -994,7 +995,6 @@ pub fn build(b: *std.Build) !void {
     if (android) {
         try sdl_c_flags.appendSlice(&.{
             "-D_POSIX_C_SOURCE=200809L", // Add this line!
-            "_GNU_SOURCE=1",
         });
         sdl_mod.addCSourceFiles(.{
             .flags = sdl_c_flags.slice(),
