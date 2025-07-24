@@ -992,6 +992,10 @@ pub fn build(b: *std.Build) void {
     }
 
     if (android) {
+        try sdl_c_flags.appendSlice(&.{
+            "-D_POSIX_C_SOURCE=200809L", // Add this line!
+        // or try "-D_GNU_SOURCE" if the above doesn't work
+        });
         sdl_mod.addCSourceFiles(.{
             .flags = sdl_c_flags.slice(),
             .files = &.{
