@@ -18,6 +18,7 @@
         "src/",
         "build.zig",
         "build.zig.zon",
+        "android",
 
         "LICENSES/",
         "LICENSE.txt",
