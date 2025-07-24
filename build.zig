@@ -1,8 +1,11 @@
+// © 2024 Carl Åstholm
+// SPDX-License-Identifier: MIT
+
 const std = @import("std");
 
 pub const version: std.SemanticVersion = .{ .major = 3, .minor = 2, .patch = 18 };
-const formatted_version = std.fmt.comptimePrint("SDL3-{}", .{version});
-pub const vendor_info = "https://github.com/stark26583/SDL 0.2.2";
+const formatted_version = std.fmt.comptimePrint("SDL3-{d}.{d}.{d}", .{ version.major, version.minor, version.patch }); // TODO: Change to {f} after 0.15
+pub const vendor_info = "https://github.com/mozbeel/SDL 0.2.6";
 pub const revision = formatted_version ++ " (" ++ vendor_info ++ ")";
 
 pub fn build(b: *std.Build) void {
@@ -22,17 +25,45 @@ pub fn build(b: *std.Build) void {
         "strip",
         "Strip debug symbols (default: varies)",
     );
-    // TODO: Add Options to disable some functionalites to reduce the output lib size if not used.
+    const sanitize_c = b.option(
+        enum { off, trap, full }, // TODO: Change to std.zig.SanitizeC after 0.15
+        "sanitize_c",
+        "Detect C undefined behavior (default: varies)",
+    );
+    const legacy_sanitize_c_field = @FieldType(std.Build.Module.CreateOptions, "sanitize_c") == ?bool;
+    const resolved_sanitize_c = if (sanitize_c) |x| switch (legacy_sanitize_c_field) {
+        true => switch (x) {
+            .off => false,
+            .trap, .full => true,
+        },
+        false => @as(std.zig.SanitizeC, switch (x) {
+            .off => .off,
+            .trap => .trap,
+            .full => .full,
+        }),
+    } else null;
     const pic = b.option(
         bool,
         "pic",
         "Produce position-independent code (default: varies)",
     );
     const lto = b.option(
-        bool,
+        enum { true, false, none, full, thin }, // TODO: Change to std.zig.LtoMode after 0.15
         "lto",
         "Perform link time optimization (default: varies)",
     );
+    const legacy_lto_field = !@hasField(std.Build.Step.Compile, "lto");
+    const resolved_lto = if (lto) |x| switch (legacy_lto_field) {
+        true => switch (x) {
+            .false, .none => false,
+            .true, .full, .thin => true,
+        },
+        false => @as(std.zig.LtoMode, switch (x) {
+            .false, .none => .none,
+            .true, .full => .full,
+            .thin => .thin,
+        }),
+    } else null;
     const emscripten_pthreads = b.option(
         bool,
         "emscripten_pthreads",
@@ -44,56 +75,60 @@ pub fn build(b: *std.Build) void {
         "Additionally install 'SDL_build_config.h' when installing SDL (default: false)",
     ) orelse false;
 
-    var android = false;
     var windows = false;
     var linux = false;
     var linux_deps_values: ?LinuxDepsValues = null;
     var macos = false;
-    var macos_system_include_path: ?std.Build.LazyPath = null;
-    var macos_system_framework_path: ?std.Build.LazyPath = null;
-    var macos_library_path: ?std.Build.LazyPath = null;
+    var android = false;
+    var ios = false;
     var emscripten = false;
-    var emscripten_system_include_path: ?std.Build.LazyPath = null;
+    var system_include_path: ?std.Build.LazyPath = null;
+    var system_framework_path: ?std.Build.LazyPath = null;
+    var library_path: ?std.Build.LazyPath = null;
+    var glibc = false;
+    var musl = false;
     switch (target.result.os.tag) {
         .windows => {
             windows = true;
         },
         .linux => {
-            if (target.result.abi.isAndroid()) {
+            if (target.result.abi == .android or target.result.abi == .androideabi) {
                 android = true;
-                linux = false;
             } else {
                 linux = true;
                 if (b.lazyImport(@This(), "sdl_linux_deps")) |build_zig| {
                     linux_deps_values = LinuxDepsValues.fromBuildZig(b, build_zig);
                 }
+                glibc = target.result.abi.isGnu();
+                musl = target.result.abi.isMusl();
+
             }
         },
         .macos => {
             macos = true;
             if (b.sysroot) |sysroot| {
-                macos_system_include_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "usr/include" }) };
-                macos_system_framework_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) };
-                macos_library_path = .{ .cwd_relative = "/usr/lib" }; // ???
+                system_include_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "usr/include" }) };
+                system_framework_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) };
+                library_path = .{ .cwd_relative = "/usr/lib" }; // ???
             } else if (!target.query.isNative()) {
                 std.log.err("'--sysroot' is required when building SDL for non-native macOS targets", .{});
                 std.process.exit(1);
             }
         },
+        .ios => {
+            ios = true;
+            @panic("iOS Not supported");
+        },
         .emscripten => {
             emscripten = true;
             if (b.sysroot) |sysroot| {
-                emscripten_system_include_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "include" }) };
+                system_include_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "include" }) };
             } else {
                 std.log.err("'--sysroot' is required when building SDL for Emscripten", .{});
                 std.process.exit(1);
             }
         },
         else => {},
-    }
-
-    if (target.result.abi.isAndroid()) {
-        android = true;
     }
 
     const build_config_h: *std.Build.Step.ConfigHeader = build_config_h: {
@@ -129,7 +164,7 @@ pub fn build(b: *std.Build) void {
             .HAVE_SYS_TYPES_H = windows or linux or macos or emscripten or android,
             .HAVE_WCHAR_H = windows or linux or macos or emscripten or android,
             .HAVE_PTHREAD_NP_H = false,
-            .HAVE_DLOPEN = linux or android or macos or emscripten,
+            .HAVE_DLOPEN = linux or macos or emscripten,
             .HAVE_MALLOC = windows or linux or macos or emscripten or android,
             .HAVE_FDATASYNC = linux or emscripten,
             .HAVE_GETENV = windows or linux or macos or emscripten or android,
@@ -153,8 +188,8 @@ pub fn build(b: *std.Build) void {
             .HAVE_WCSTOL = windows or linux or macos or emscripten or android,
             .HAVE_STRLEN = windows or linux or macos or emscripten or android,
             .HAVE_STRNLEN = windows or linux or macos or emscripten or android,
-            .HAVE_STRLCPY = macos or emscripten,
-            .HAVE_STRLCAT = macos or emscripten,
+            .HAVE_STRLCPY = linux and musl or macos or emscripten,
+            .HAVE_STRLCAT = linux and musl or macos or emscripten,
             .HAVE_STRPBRK = windows or linux or macos or emscripten or android,
             .HAVE__STRREV = windows,
             .HAVE_INDEX = linux or macos or emscripten,
@@ -205,10 +240,10 @@ pub fn build(b: *std.Build) void {
             .HAVE_FMOD = windows or linux or macos or emscripten or android,
             .HAVE_FMODF = windows or linux or macos or emscripten or android,
             .HAVE_ISINF = windows or linux or macos or emscripten or android,
-            .HAVE_ISINFF = linux or emscripten,
+            .HAVE_ISINFF = linux and !musl or emscripten,
             .HAVE_ISINF_FLOAT_MACRO = windows or linux or macos or emscripten or android,
             .HAVE_ISNAN = windows or linux or macos or emscripten or android,
-            .HAVE_ISNANF = linux or emscripten,
+            .HAVE_ISNANF = linux and !musl or emscripten,
             .HAVE_ISNAN_FLOAT_MACRO = windows or linux or macos or emscripten or android,
             .HAVE_LOG = windows or linux or macos or emscripten or android,
             .HAVE_LOGF = windows or linux or macos or emscripten or android,
@@ -233,9 +268,9 @@ pub fn build(b: *std.Build) void {
             .HAVE_TRUNC = windows or linux or macos or emscripten or android,
             .HAVE_TRUNCF = windows or linux or macos or emscripten or android,
             .HAVE__FSEEKI64 = windows,
-            .HAVE_FOPEN64 = windows or linux or emscripten,
-            .HAVE_FSEEKO = windows or linux or macos or emscripten or android,
-            .HAVE_FSEEKO64 = windows or linux or emscripten,
+            .HAVE_FOPEN64 = windows or linux and !musl or emscripten,
+            .HAVE_FSEEKO = windows or linux or macos or emscripten,
+            .HAVE_FSEEKO64 = windows or linux and !musl or emscripten,
             .HAVE_MEMFD_CREATE = linux,
             .HAVE_POSIX_FALLOCATE = linux or emscripten or android,
             .HAVE_SIGACTION = linux or macos or emscripten,
@@ -252,7 +287,7 @@ pub fn build(b: *std.Build) void {
             .HAVE_GETPAGESIZE = linux or macos or emscripten,
             .HAVE_ICONV = linux or emscripten,
             .SDL_USE_LIBICONV = false,
-            .HAVE_PTHREAD_SETNAME_NP = linux or android or macos,
+            .HAVE_PTHREAD_SETNAME_NP = linux or macos or android,
             .HAVE_PTHREAD_SET_NAME_NP = false,
             .HAVE_SEM_TIMEDWAIT = linux,
             .HAVE_GETAUXVAL = linux,
@@ -334,7 +369,7 @@ pub fn build(b: *std.Build) void {
             .SDL_JOYSTICK_EMSCRIPTEN = emscripten,
             .SDL_JOYSTICK_GAMEINPUT = false,
             .SDL_JOYSTICK_HAIKU = false,
-            .SDL_JOYSTICK_HIDAPI = windows or linux or android or macos,
+            .SDL_JOYSTICK_HIDAPI = windows or linux or macos or android,
             .SDL_JOYSTICK_IOKIT = macos,
             .SDL_JOYSTICK_LINUX = linux,
             .SDL_JOYSTICK_MFI = macos,
@@ -376,14 +411,14 @@ pub fn build(b: *std.Build) void {
             .SDL_THREAD_PSP = false,
             .SDL_THREAD_PS2 = false,
             .SDL_THREAD_N3DS = false,
-            .SDL_TIME_UNIX = linux or android or macos or emscripten,
+            .SDL_TIME_UNIX = linux or macos or emscripten or android,
             .SDL_TIME_WINDOWS = windows,
             .SDL_TIME_VITA = false,
             .SDL_TIME_PSP = false,
             .SDL_TIME_PS2 = false,
             .SDL_TIME_N3DS = false,
             .SDL_TIMER_HAIKU = false,
-            .SDL_TIMER_UNIX = linux or android or macos or emscripten,
+            .SDL_TIMER_UNIX = linux or macos or emscripten,
             .SDL_TIMER_WINDOWS = windows,
             .SDL_TIMER_VITA = false,
             .SDL_TIMER_PSP = false,
@@ -447,7 +482,7 @@ pub fn build(b: *std.Build) void {
             .SDL_VIDEO_RENDER_PS2 = false,
             .SDL_VIDEO_RENDER_PSP = false,
             .SDL_VIDEO_RENDER_VITA_GXM = false,
-            .SDL_VIDEO_OPENGL = windows or linux or macos or android,
+            .SDL_VIDEO_OPENGL = windows or linux or macos,
             .SDL_VIDEO_OPENGL_ES = linux or android,
             .SDL_VIDEO_OPENGL_ES2 = windows or linux or macos or emscripten or android,
             .SDL_VIDEO_OPENGL_CGL = macos,
@@ -499,7 +534,7 @@ pub fn build(b: *std.Build) void {
             .SDL_CAMERA_DRIVER_VITA = false,
             .SDL_DIALOG_DUMMY = false,
             .SDL_ALTIVEC_BLITTERS = false,
-            .DYNAPI_NEEDS_DLOPEN = linux or android or macos or emscripten,
+            .DYNAPI_NEEDS_DLOPEN = linux or macos or emscripten or android,
             .SDL_USE_IME = linux,
             .SDL_DISABLE_WINDOWS_IME = false,
             .SDL_GDK_TEXTINPUT = false,
@@ -549,6 +584,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
         .strip = strip,
+        .sanitize_c = resolved_sanitize_c,
         .pic = pic,
     });
     const sdl_lib = b.addLibrary(.{
@@ -562,12 +598,16 @@ pub fn build(b: *std.Build) void {
         },
         .use_llvm = if (emscripten) true else null,
     });
-    sdl_lib.want_lto = lto;
+    if (legacy_lto_field) {
+        sdl_lib.want_lto = resolved_lto;
+    } else {
+        sdl_lib.lto = resolved_lto;
+    }
 
     sdl_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
-    sdl_mod.addCMacro("SDL_BUILD_MAJOR_VERSION", std.fmt.comptimePrint("{}", .{version.major}));
-    sdl_mod.addCMacro("SDL_BUILD_MINOR_VERSION", std.fmt.comptimePrint("{}", .{version.minor}));
-    sdl_mod.addCMacro("SDL_BUILD_MICRO_VERSION", std.fmt.comptimePrint("{}", .{version.patch}));
+    sdl_mod.addCMacro("SDL_BUILD_MAJOR_VERSION", std.fmt.comptimePrint("{d}", .{version.major}));
+    sdl_mod.addCMacro("SDL_BUILD_MINOR_VERSION", std.fmt.comptimePrint("{d}", .{version.minor}));
+    sdl_mod.addCMacro("SDL_BUILD_MICRO_VERSION", std.fmt.comptimePrint("{d}", .{version.patch}));
     switch (sdl_lib.linkage.?) {
         .static => {
             sdl_mod.addCMacro("SDL_STATIC_LIB", "1");
@@ -581,33 +621,33 @@ pub fn build(b: *std.Build) void {
         sdl_mod.addCMacro("_REENTRANT", "1");
     }
 
-    if (!android) sdl_mod.addConfigHeader(build_config_h);
-    if (!android) sdl_mod.addConfigHeader(revision_h);
+    sdl_mod.addConfigHeader(build_config_h);
+    sdl_mod.addConfigHeader(revision_h);
     sdl_mod.addIncludePath(b.path("include"));
     sdl_mod.addIncludePath(b.path("src"));
-    // sdl_mod.addIncludePath(b.path("include/build_config"));
     sdl_mod.addSystemIncludePath(b.path("src/video/khronos"));
     if (linux_deps_values) |deps_values| {
         sdl_mod.addIncludePath(deps_values.dependency.path("src"));
         sdl_mod.addSystemIncludePath(deps_values.dependency.path("include"));
-        if (target.result.cpu.arch == .x86_64 and target.result.abi.isGnu()) {
+        // Currently, the only difference between these two sets of target-specific headers
+        // is that the x86_64 one defines G_VA_COPY_AS_ARRAY and the aarch64 one doesn't.
+        if (target.result.cpu.arch == .x86_64 and glibc) {
             sdl_mod.addSystemIncludePath(deps_values.dependency.path("include/x86_64-linux-gnu"));
         }
-        if (target.result.cpu.arch == .aarch64 and target.result.abi.isGnu()) {
+        // TODO: musl targets can piggyback off of the aarch64-linux-gnu headers for now because
+        // they are identical to their x86_64-linux-musl and aarch64-linux-musl equivalents.
+        if (target.result.cpu.arch == .aarch64 or target.result.cpu.arch == .x86_64 and musl) {
             sdl_mod.addSystemIncludePath(deps_values.dependency.path("include/aarch64-linux-gnu"));
         }
     }
-    if (macos_system_include_path) |path| {
+    if (system_include_path) |path| {
         sdl_mod.addSystemIncludePath(path);
     }
-    if (macos_system_framework_path) |path| {
+    if (system_framework_path) |path| {
         sdl_mod.addSystemFrameworkPath(path);
     }
-    if (macos_library_path) |path| {
+    if (library_path) |path| {
         sdl_mod.addLibraryPath(path);
-    }
-    if (emscripten_system_include_path) |path| {
-        sdl_mod.addSystemIncludePath(path);
     }
 
     var sdl_c_flags: std.BoundedArray([]const u8, common_c_flags.len + 3) = .{};
@@ -621,6 +661,7 @@ pub fn build(b: *std.Build) void {
     if (android) {
         sdl_c_flags.appendAssumeCapacity("-pthread");
     }
+
     if (macos) {
         sdl_c_flags.appendAssumeCapacity("-pthread");
         sdl_c_flags.appendAssumeCapacity("-fobjc-arc");
@@ -642,10 +683,8 @@ pub fn build(b: *std.Build) void {
             "src/SDL_log.c",
             "src/SDL_properties.c",
             "src/SDL_utils.c",
-
             "src/atomic/SDL_atomic.c",
             "src/atomic/SDL_spinlock.c",
-
             "src/audio/SDL_audio.c",
             "src/audio/SDL_audiocvt.c",
             "src/audio/SDL_audiodev.c",
@@ -654,15 +693,10 @@ pub fn build(b: *std.Build) void {
             "src/audio/SDL_audiotypecvt.c",
             "src/audio/SDL_mixer.c",
             "src/audio/SDL_wave.c",
-
             "src/camera/SDL_camera.c",
-
             "src/core/SDL_core_unsupported.c",
-
             "src/cpuinfo/SDL_cpuinfo.c",
-
             "src/dynapi/SDL_dynapi.c",
-
             "src/events/SDL_categories.c",
             "src/events/SDL_clipboardevents.c",
             "src/events/SDL_displayevents.c",
@@ -680,54 +714,32 @@ pub fn build(b: *std.Build) void {
             "src/events/SDL_touch.c",
             "src/events/SDL_windowevents.c",
             "src/events/imKStoUCS.c",
-
             "src/filesystem/SDL_filesystem.c",
-
             "src/gpu/SDL_gpu.c",
-
             "src/haptic/SDL_haptic.c",
-
             "src/hidapi/SDL_hidapi.c",
-
             "src/io/SDL_asyncio.c",
             "src/io/SDL_iostream.c",
             "src/io/generic/SDL_asyncio_generic.c",
-
             "src/joystick/SDL_gamepad.c",
             "src/joystick/SDL_joystick.c",
             "src/joystick/SDL_steam_virtual_gamepad.c",
             "src/joystick/controller_type.c",
-            "src/joystick/hidapi/SDL_hidapijoystick.c",
-            "src/joystick/hidapi/SDL_hidapi_combined.c",
-            "src/joystick/hidapi/SDL_hidapi_gamecube.c",
-            "src/joystick/hidapi/SDL_hidapi_luna.c",
-            "src/joystick/hidapi/SDL_hidapi_ps3.c",
-            "src/joystick/hidapi/SDL_hidapi_ps4.c",
-            "src/joystick/hidapi/SDL_hidapi_ps5.c",
-            "src/joystick/hidapi/SDL_hidapi_rumble.c",
-            "src/joystick/hidapi/SDL_hidapi_shield.c",
-            "src/joystick/hidapi/SDL_hidapi_stadia.c",
-            "src/joystick/hidapi/SDL_hidapi_steam.c",
-            "src/joystick/hidapi/SDL_hidapi_steam_hori.c",
-            "src/joystick/hidapi/SDL_hidapi_steamdeck.c",
-            "src/joystick/hidapi/SDL_hidapi_switch.c",
-            "src/joystick/hidapi/SDL_hidapi_wii.c",
-            "src/joystick/hidapi/SDL_hidapi_xbox360.c",
-            "src/joystick/hidapi/SDL_hidapi_xbox360w.c",
-            "src/joystick/hidapi/SDL_hidapi_xboxone.c",
-
             "src/locale/SDL_locale.c",
-
             "src/main/SDL_main_callbacks.c",
             "src/main/SDL_runapp.c",
-
             "src/misc/SDL_url.c",
-
             "src/power/SDL_power.c",
-
+            "src/render/SDL_d3dmath.c",
             "src/render/SDL_render.c",
             "src/render/SDL_render_unsupported.c",
             "src/render/SDL_yuv_sw.c",
+            "src/render/direct3d/SDL_render_d3d.c",
+            "src/render/direct3d/SDL_shaders_d3d.c",
+            "src/render/direct3d11/SDL_render_d3d11.c",
+            "src/render/direct3d11/SDL_shaders_d3d11.c",
+            "src/render/direct3d12/SDL_render_d3d12.c",
+            "src/render/direct3d12/SDL_shaders_d3d12.c",
             "src/render/gpu/SDL_pipeline_gpu.c",
             "src/render/gpu/SDL_render_gpu.c",
             "src/render/gpu/SDL_shaders_gpu.c",
@@ -735,9 +747,8 @@ pub fn build(b: *std.Build) void {
             "src/render/opengl/SDL_shaders_gl.c",
             "src/render/opengles2/SDL_render_gles2.c",
             "src/render/opengles2/SDL_shaders_gles2.c",
-            "src/render/SDL_d3dmath.c",
-            // "src/render/ps2/SDL_render_ps2.c",
-            // "src/render/psp/SDL_render_psp.c",
+            "src/render/ps2/SDL_render_ps2.c",
+            "src/render/psp/SDL_render_psp.c",
             "src/render/software/SDL_blendfillrect.c",
             "src/render/software/SDL_blendline.c",
             "src/render/software/SDL_blendpoint.c",
@@ -832,46 +843,45 @@ pub fn build(b: *std.Build) void {
     };
     switch (sdl_lib.linkage.?) {
         .static => {
-            if (!android) sdl_mod.addCSourceFiles(.{
-                .flags = sdl_c_flags.slice(),
-                .files = &sdl_uclibc_c_files,
-            });
-            if (linux) sdl_mod.addCSourceFiles(.{
+            sdl_mod.addCSourceFiles(.{
                 .flags = sdl_c_flags.slice(),
                 .files = &sdl_uclibc_c_files,
             });
         },
         .dynamic => {
             std.debug.assert(!emscripten);
-            if (!android) {
-                const sdl_uclibc_mod = b.createModule(.{
-                    .target = target,
-                    .optimize = optimize,
-                    .link_libc = true,
-                    .strip = strip,
-                    .pic = pic,
-                });
-                const sdl_uclibc_lib = b.addLibrary(.{
-                    .linkage = .static,
-                    .name = "SDL_uclib",
-                    .root_module = sdl_uclibc_mod,
-                });
-                sdl_uclibc_lib.want_lto = lto;
-
-                if (!android) sdl_uclibc_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
-
-                if (!android) sdl_uclibc_mod.addConfigHeader(build_config_h);
-                if (!android) sdl_uclibc_mod.addConfigHeader(revision_h);
-                sdl_uclibc_mod.addIncludePath(b.path("include"));
-                sdl_uclibc_mod.addIncludePath(b.path("src"));
-
-                sdl_uclibc_mod.addCSourceFiles(.{
-                    .flags = &(common_c_flags ++ .{"-fvisibility=hidden"}),
-                    .files = &sdl_uclibc_c_files,
-                });
-
-                sdl_mod.linkLibrary(sdl_uclibc_lib);
+            const sdl_uclibc_mod = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+                .strip = strip,
+                .sanitize_c = resolved_sanitize_c,
+                .pic = pic,
+            });
+            const sdl_uclibc_lib = b.addLibrary(.{
+                .linkage = .static,
+                .name = "SDL_uclib",
+                .root_module = sdl_uclibc_mod,
+            });
+            if (legacy_lto_field) {
+                sdl_uclibc_lib.want_lto = resolved_lto;
+            } else {
+                sdl_uclibc_lib.lto = resolved_lto;
             }
+
+            sdl_uclibc_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
+
+            sdl_uclibc_mod.addConfigHeader(build_config_h);
+            sdl_uclibc_mod.addConfigHeader(revision_h);
+            sdl_uclibc_mod.addIncludePath(b.path("include"));
+            sdl_uclibc_mod.addIncludePath(b.path("src"));
+
+            sdl_uclibc_mod.addCSourceFiles(.{
+                .flags = &(common_c_flags ++ .{"-fvisibility=hidden"}),
+                .files = &sdl_uclibc_c_files,
+            });
+
+            sdl_mod.linkLibrary(sdl_uclibc_lib);
         },
     }
 
@@ -881,13 +891,6 @@ pub fn build(b: *std.Build) void {
             .files = &.{
                 "src/audio/dummy/SDL_dummyaudio.c",
                 "src/audio/disk/SDL_diskaudio.c",
-                "src/render/SDL_d3dmath.c",
-                "src/render/direct3d/SDL_render_d3d.c",
-                "src/render/direct3d/SDL_shaders_d3d.c",
-                "src/render/direct3d11/SDL_render_d3d11.c",
-                "src/render/direct3d11/SDL_shaders_d3d11.c",
-                "src/render/direct3d12/SDL_render_d3d12.c",
-                "src/render/direct3d12/SDL_shaders_d3d12.c",
                 "src/camera/dummy/SDL_camera_dummy.c",
                 "src/joystick/virtual/SDL_virtualjoystick.c",
                 "src/video/dummy/SDL_nullevents.c",
@@ -989,6 +992,10 @@ pub fn build(b: *std.Build) void {
     }
 
     if (android) {
+        try sdl_c_flags.appendSlice(&.{
+            "-D_POSIX_C_SOURCE=200809L", // Add this line!
+        // or try "-D_GNU_SOURCE" if the above doesn't work
+        });
         sdl_mod.addCSourceFiles(.{
             .flags = sdl_c_flags.slice(),
             .files = &.{
@@ -1058,25 +1065,7 @@ pub fn build(b: *std.Build) void {
         // This is needed for "src/render/opengles/SDL_render_gles.c" to compile
         sdl_mod.addCMacro("GL_GLEXT_PROTOTYPES", "1");
 
-        // Add Java files to dependency
-        const java_dir = b.path("android-project/app/src/main/java/org/libsdl/app");
-        const java_files: []const []const u8 = &.{
-            "HIDDevice.java",
-            "HIDDeviceBLESteamController.java",
-            "HIDDeviceManager.java",
-            "HIDDeviceUSB.java",
-            "SDL.java",
-            "SDLActivity.java",
-            "SDLAudioManager.java",
-            "SDLControllerManager.java",
-            "SDLDummyEdit.java",
-            "SDLInputConnection.java",
-            "SDLSurface.java",
-        };
-        const java_write_files = b.addNamedWriteFiles("sdljava");
-        for (java_files) |java_file_basename| {
-            _ = java_write_files.addCopyFile(java_dir.path(b, java_file_basename), java_file_basename);
-        }
+
     }
 
     if (linux and !android) {
@@ -1097,9 +1086,6 @@ pub fn build(b: *std.Build) void {
                 "src/camera/pipewire/SDL_camera_pipewire.c",
                 "src/audio/pulseaudio/SDL_pulseaudio.c",
                 "src/audio/sndio/SDL_sndioaudio.c",
-
-                "src/render/SDL_d3dmath.c",
-
                 "src/video/x11/SDL_x11clipboard.c",
                 "src/video/x11/SDL_x11dyn.c",
                 "src/video/x11/SDL_x11events.c",
@@ -1447,6 +1433,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
         .strip = strip,
+        .sanitize_c = resolved_sanitize_c,
         .pic = pic,
     });
     const sdl_test_lib = b.addLibrary(.{
@@ -1455,18 +1442,21 @@ pub fn build(b: *std.Build) void {
         .root_module = sdl_test_mod,
         .use_llvm = if (emscripten) true else null,
     });
-    sdl_test_lib.want_lto = lto;
-
-    if (!android) sdl_test_mod.addConfigHeader(build_config_h);
-    if (!android) sdl_test_mod.addConfigHeader(revision_h);
-
-    if (android) {
-        sdl_mod.addIncludePath(b.path("include/build_config"));
+    if (legacy_lto_field) {
+        sdl_test_lib.want_lto = resolved_lto;
+    } else {
+        sdl_test_lib.lto = resolved_lto;
     }
 
+    sdl_test_mod.addConfigHeader(build_config_h);
+    sdl_test_mod.addConfigHeader(revision_h);
     sdl_test_mod.addIncludePath(b.path("include"));
-    if (emscripten_system_include_path) |path| {
+    if (system_include_path) |path| {
         sdl_test_mod.addSystemIncludePath(path);
+    }
+
+    if (android) {
+        sdl_mod.addIncludePath(b.path("include/build_config/"));
     }
 
     sdl_test_mod.addCSourceFiles(.{
