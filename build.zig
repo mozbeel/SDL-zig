@@ -8,7 +8,7 @@ const formatted_version = std.fmt.comptimePrint("SDL3-{d}.{d}.{d}", .{ version.m
 pub const vendor_info = "https://github.com/mozbeel/SDL 0.2.6";
 pub const revision = formatted_version ++ " (" ++ vendor_info ++ ")";
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const preferred_linkage = b.option(
