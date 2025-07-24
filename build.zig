@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const version: std.SemanticVersion = .{ .major = 3, .minor = 2, .patch = 12 };
+pub const version: std.SemanticVersion = .{ .major = 3, .minor = 2, .patch = 18 };
 const formatted_version = std.fmt.comptimePrint("SDL3-{}", .{version});
 pub const vendor_info = "https://github.com/stark26583/SDL 0.2.2";
 pub const revision = formatted_version ++ " (" ++ vendor_info ++ ")";
@@ -564,7 +564,7 @@ pub fn build(b: *std.Build) void {
     });
     sdl_lib.want_lto = lto;
 
-    if (!android) sdl_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
+    sdl_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
     sdl_mod.addCMacro("SDL_BUILD_MAJOR_VERSION", std.fmt.comptimePrint("{}", .{version.major}));
     sdl_mod.addCMacro("SDL_BUILD_MINOR_VERSION", std.fmt.comptimePrint("{}", .{version.minor}));
     sdl_mod.addCMacro("SDL_BUILD_MICRO_VERSION", std.fmt.comptimePrint("{}", .{version.patch}));
