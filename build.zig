@@ -662,7 +662,7 @@ pub fn build(b: *std.Build) !void {
     }
     if (android) {
         sdl_c_flags.appendAssumeCapacity("-pthread");
-        //sdl_lib.bundle_ubsan_rt = false;
+        sdl_lib.bundle_ubsan_rt = false;
     }
 
     if (macos) {
