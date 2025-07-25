@@ -53,8 +53,8 @@ x86_64-linux-android | 🉑 | 🉑 | 🉑 | Requires Android SDK and NDK
 x86-linux-android | 🉑 | 🉑 | 🉑 | Requires Android SDK and NDK
 aarch64-linux-android | 🉑 | 🉑 | 🉑 | Requires Android SDK and NDK
 arm-linux-android | 🉑 | 🉑 | 🉑 | Requires Android SDK and NDK
-x86_64-ios | ❌ | ❌ | 🔜 |
-aarch64-ios | ❌ | ❌ | 🔜 |
+x86_64-ios | ❌ | ❌ | 🔜 | Doesn't work without iOS SDK
+aarch64-ios | ❌ | ❌ | 🔜 | Doesn't work without iOS SDK
 wasm32-emscripten-musl | 🉑 | 🉑 | 🉑 | Requires EMSDK
 wasm64-emscripten-musl | 🉑 | 🉑 | 🉑 | Requires EMSDK
 
