@@ -370,7 +370,7 @@ pub fn build(b: *std.Build) !void {
             .SDL_JOYSTICK_EMSCRIPTEN = emscripten,
             .SDL_JOYSTICK_GAMEINPUT = false,
             .SDL_JOYSTICK_HAIKU = false,
-            .SDL_JOYSTICK_HIDAPI = windows or linux or android or macos,
+            .SDL_JOYSTICK_HIDAPI = windows or linux or macos,
             .SDL_JOYSTICK_IOKIT = macos,
             .SDL_JOYSTICK_LINUX = linux,
             .SDL_JOYSTICK_MFI = macos,
