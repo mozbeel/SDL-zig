@@ -63,6 +63,9 @@ Legend:
 - 🧪 Experimental
 - ❌ Not supported
 
+## Template for cross-compiling
+If you need a quick example or template on how to cross-compile for all supported platforms this template by me is recommended: https://github.com/mozbeel/zig-sdl3-cross-template
+
 ### Windows
 
 Building for x86-64 Windows from any host system works out of the box. AArch64 Windows support is experimental and not yet actively tested.
@@ -116,6 +119,8 @@ Depending on the state of your Emscripten cache, you might need to run `embuilde
 To build with [pthreads support](https://emscripten.org/docs/porting/pthreads.html), specify `.emscripten_pthreads = true`.
 
 ### Android
+
+For Android you need the Android Sdk and the Android Ndk and with <a href="https://github.com/silbinarywolf/zig-android-sdk">zig-android-sdk</a> it's just plug and play if you have the JDK (Java Development Kit) installed.
 
 ## License
 
