@@ -337,7 +337,7 @@ pub fn build(b: *std.Build) !void {
             .SDL_AUDIO_DRIVER_OPENSLES = android,
             .SDL_AUDIO_DRIVER_AAUDIO = android,
             .SDL_AUDIO_DRIVER_COREAUDIO = macos,
-            .SDL_AUDIO_DRIVER_DISK = windows or linux or macos or emscripten or android,
+            .SDL_AUDIO_DRIVER_DISK = windows or linux or macos or emscripten,
             .SDL_AUDIO_DRIVER_DSOUND = windows,
             .SDL_AUDIO_DRIVER_DUMMY = windows or linux or macos or emscripten or android,
             .SDL_AUDIO_DRIVER_EMSCRIPTEN = emscripten,
