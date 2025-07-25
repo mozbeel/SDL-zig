@@ -49,10 +49,10 @@ Target \\ Host|Windows|Linux|macOS
 `aarch64-linux-gnu`|🧪|🧪|🧪
 `x86_64-macos-none`|❌|❌|🉑
 `aarch64-macos-none`|❌|❌|🉑
-`x86_64-linux-android`|✅|✅|✅
-`x86-linux-android`|✅|✅|✅
-`aarch64-linux-android`|✅|✅|✅
-`arm-linux-android`|✅|✅|✅
+`x86_64-linux-android`|🉑|🉑|🉑
+`x86-linux-android`|🉑|🉑|🉑
+`aarch64-linux-android`|🉑|🉑|🉑
+`arm-linux-android`|🉑|🉑|🉑
 `wasm32-emscripten-musl`|🉑|🉑|🉑
 `wasm64-emscripten-musl`|🉑|🉑|🉑
 
