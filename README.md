@@ -53,6 +53,8 @@ x86_64-linux-android | 🉑 | 🉑 | 🉑 | Requires Android SDK and NDK
 x86-linux-android | 🉑 | 🉑 | 🉑 | Requires Android SDK and NDK
 aarch64-linux-android | 🉑 | 🉑 | 🉑 | Requires Android SDK and NDK
 arm-linux-android | 🉑 | 🉑 | 🉑 | Requires Android SDK and NDK
+x86_64-ios | ❌ | ❌ | 🔜 |
+aarch64-ios | ❌ | ❌ | 🔜 |
 wasm32-emscripten-musl | 🉑 | 🉑 | 🉑 | Requires EMSDK
 wasm64-emscripten-musl | 🉑 | 🉑 | 🉑 | Requires EMSDK
 
@@ -62,6 +64,7 @@ Legend:
 - 🉑 Supported, but requires external SDKs
 - 🧪 Experimental
 - ❌ Not supported
+- 🔜 Soon
 
 ## Template for cross-compiling
 If you need a quick example or template on how to cross-compile for all supported platforms this template by me is recommended: https://github.com/mozbeel/zig-sdl3-cross-template
@@ -121,6 +124,10 @@ To build with [pthreads support](https://emscripten.org/docs/porting/pthreads.ht
 ### Android
 
 For Android you need the Android Sdk and the Android Ndk and with <a href="https://github.com/silbinarywolf/zig-android-sdk">zig-android-sdk</a> it's just plug and play if you have the JDK (Java Development Kit) installed.
+
+### iOS
+
+TODO
 
 ## License
 
