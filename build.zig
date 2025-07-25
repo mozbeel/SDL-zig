@@ -520,7 +520,7 @@ pub fn build(b: *std.Build) !void {
             .SDL_FILESYSTEM_PSP = false,
             .SDL_FILESYSTEM_PS2 = false,
             .SDL_FILESYSTEM_N3DS = false,
-            .SDL_STORAGE_STEAM = windows or linux or macos or android,
+            .SDL_STORAGE_STEAM = windows or linux or macos,
             .SDL_FSOPS_POSIX = linux or macos or emscripten or android,
             .SDL_FSOPS_WINDOWS = windows,
             .SDL_FSOPS_DUMMY = false,
