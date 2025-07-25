@@ -41,20 +41,20 @@ Example projects using this SDL package:
 
 ## Supported targets
 
-Target \\ Host|Windows|Linux|macOS
--|:-:|:-:|:-:
-`x86_64-windows-gnu`|✅|✅|✅
-`aarch64-windows-gnu`|🧪|🧪|🧪
-`x86_64-linux-gnu`|✅|✅|✅
-`aarch64-linux-gnu`|🧪|🧪|🧪
-`x86_64-macos-none`|❌|❌|🉑
-`aarch64-macos-none`|❌|❌|🉑
-`x86_64-linux-android`|🉑|🉑|🉑
-`x86-linux-android`|🉑|🉑|🉑
-`aarch64-linux-android`|🉑|🉑|🉑
-`arm-linux-android`|🉑|🉑|🉑
-`wasm32-emscripten-musl`|🉑|🉑|🉑
-`wasm64-emscripten-musl`|🉑|🉑|🉑
+Target \\ Host|Windows|Linux|macOS \\ Notes
+-|:-:|:-:|:-:|:-:
+`x86_64-windows-gnu`|✅|✅|✅|Works out of the box
+`aarch64-windows-gnu`|🧪|🧪|🧪|Works out of the box (experimental)
+`x86_64-linux-gnu`|✅|✅|✅||Works out of the box
+`aarch64-linux-gnu`|🧪|🧪|🧪||Works out of the box (experimental)
+`x86_64-macos-none`|❌|❌|🉑|Doesn't work without macOS SDK
+`aarch64-macos-none`|❌|❌|🉑|Doesn't work without macOS SDK
+`x86_64-linux-android`|🉑|🉑|🉑|Requires Android SDK and NDK
+`x86-linux-android`|🉑|🉑|🉑|Requires Android SDK and NDK
+`aarch64-linux-android`|🉑|🉑|🉑|Requires Android SDK and NDK
+`arm-linux-android`|🉑|🉑|🉑|Requires Android SDK and NDK
+`wasm32-emscripten-musl`|🉑|🉑|🉑|Requires EMSDK
+`wasm64-emscripten-musl`|🉑|🉑|🉑|Requires EMSDK
 
 Legend:
 
