@@ -1033,6 +1033,7 @@ pub fn build(b: *std.Build) !void {
                 "src/joystick/hidapi/SDL_hidapi_xbox360.c",
                 "src/joystick/hidapi/SDL_hidapi_xbox360w.c",
                 "src/joystick/hidapi/SDL_hidapi_xboxone.c",
+                "src/joystick/hidapi/SDL_hidapijoystick.c",
                 "src/joystick/android/SDL_sysjoystick.c",
                 "src/joystick/virtual/SDL_virtualjoystick.c",
 
