@@ -49,6 +49,10 @@ Target \\ Host|Windows|Linux|macOS
 `aarch64-linux-gnu`|🧪|🧪|🧪
 `x86_64-macos-none`|❌|❌|🉑
 `aarch64-macos-none`|❌|❌|🉑
+`x86_64-linux-android`|✅|✅|✅
+`x86-linux-android`|✅|✅|✅
+`aarch64-linux-android`|✅|✅|✅
+`arm-linux-android`|✅|✅|✅
 `wasm32-emscripten-musl`|🉑|🉑|🉑
 `wasm64-emscripten-musl`|🉑|🉑|🉑
 
@@ -110,6 +114,8 @@ zig build -Dtarget=wasm32-emscripten --sysroot "$sysroot_path"
 Depending on the state of your Emscripten cache, you might need to run `embuilder build sysroot` to ensure that the Emscripten sysroot is built before you run `zig build`.
 
 To build with [pthreads support](https://emscripten.org/docs/porting/pthreads.html), specify `.emscripten_pthreads = true`.
+
+### Android
 
 ## License
 
