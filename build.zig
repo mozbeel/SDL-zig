@@ -524,7 +524,7 @@ pub fn build(b: *std.Build) !void {
             .SDL_FSOPS_POSIX = linux or macos or emscripten or android,
             .SDL_FSOPS_WINDOWS = windows,
             .SDL_FSOPS_DUMMY = false,
-            .SDL_CAMERA_DRIVER_DUMMY = windows or linux or macos or emscripten or android,
+            .SDL_CAMERA_DRIVER_DUMMY = windows or linux or macos or emscripten,
             .SDL_CAMERA_DRIVER_DISK = false,
             .SDL_CAMERA_DRIVER_V4L2 = linux,
             .SDL_CAMERA_DRIVER_COREMEDIA = macos,
