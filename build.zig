@@ -1015,6 +1015,7 @@ pub fn build(b: *std.Build) !void {
                 "src/main/generic/SDL_sysmain_callbacks.c",
 
                 "src/haptic/android/SDL_syshaptic.c",
+                "src/joystick/hidapi/SDL_hidapijoystick.c",
                 "src/joystick/android/SDL_sysjoystick.c",
                 "src/joystick/virtual/SDL_virtualjoystick.c",
 
