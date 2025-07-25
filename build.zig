@@ -337,9 +337,9 @@ pub fn build(b: *std.Build) !void {
             .SDL_AUDIO_DRIVER_OPENSLES = android,
             .SDL_AUDIO_DRIVER_AAUDIO = android,
             .SDL_AUDIO_DRIVER_COREAUDIO = macos,
-            .SDL_AUDIO_DRIVER_DISK = windows or linux or macos or emscripten,
+            .SDL_AUDIO_DRIVER_DISK = windows or linux or macos or emscripten or android,
             .SDL_AUDIO_DRIVER_DSOUND = windows,
-            .SDL_AUDIO_DRIVER_DUMMY = windows or linux or macos or emscripten,
+            .SDL_AUDIO_DRIVER_DUMMY = windows or linux or macos or emscripten or android,
             .SDL_AUDIO_DRIVER_EMSCRIPTEN = emscripten,
             .SDL_AUDIO_DRIVER_HAIKU = false,
             .SDL_AUDIO_DRIVER_JACK = linux,
@@ -358,7 +358,6 @@ pub fn build(b: *std.Build) !void {
             .SDL_AUDIO_DRIVER_PS2 = false,
             .SDL_AUDIO_DRIVER_N3DS = false,
             .SDL_AUDIO_DRIVER_QNX = false,
-            .SDL_DISKAUDIO = android,
             .SDL_INPUT_LINUXEV = linux,
             .SDL_INPUT_LINUXKD = linux,
             .SDL_INPUT_FBSDKBIO = false,
@@ -370,7 +369,7 @@ pub fn build(b: *std.Build) !void {
             .SDL_JOYSTICK_EMSCRIPTEN = emscripten,
             .SDL_JOYSTICK_GAMEINPUT = false,
             .SDL_JOYSTICK_HAIKU = false,
-            .SDL_JOYSTICK_HIDAPI = windows or linux or macos,
+            .SDL_JOYSTICK_HIDAPI = windows or linux or macos or android,
             .SDL_JOYSTICK_IOKIT = macos,
             .SDL_JOYSTICK_LINUX = linux,
             .SDL_JOYSTICK_MFI = macos,
@@ -391,9 +390,8 @@ pub fn build(b: *std.Build) !void {
             .SDL_LIBUSB_DYNAMIC = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.libusb_soname}) else "",
             .SDL_UDEV_DYNAMIC = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.libudev_soname}) else "",
             .SDL_PROCESS_DUMMY = emscripten,
-            .SDL_PROCESS_POSIX = linux or macos,
+            .SDL_PROCESS_POSIX = linux or macos or android,
             .SDL_PROCESS_WINDOWS = windows,
-            .SDL_PROCESS_ANDROID = android,
             .SDL_SENSOR_ANDROID = android,
             .SDL_SENSOR_COREMOTION = false,
             .SDL_SENSOR_WINDOWS = windows,
@@ -428,14 +426,14 @@ pub fn build(b: *std.Build) !void {
             .SDL_TIMER_N3DS = false,
             .SDL_VIDEO_DRIVER_ANDROID = android,
             .SDL_VIDEO_DRIVER_COCOA = macos,
-            .SDL_VIDEO_DRIVER_DUMMY = windows or linux or macos or emscripten,
+            .SDL_VIDEO_DRIVER_DUMMY = windows or linux or macos or emscripten or android,
             .SDL_VIDEO_DRIVER_EMSCRIPTEN = emscripten,
             .SDL_VIDEO_DRIVER_HAIKU = false,
             .SDL_VIDEO_DRIVER_KMSDRM = linux,
             .SDL_VIDEO_DRIVER_KMSDRM_DYNAMIC = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.drm_soname}) else "",
             .SDL_VIDEO_DRIVER_KMSDRM_DYNAMIC_GBM = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.gbm_soname}) else "",
             .SDL_VIDEO_DRIVER_N3DS = false,
-            .SDL_VIDEO_DRIVER_OFFSCREEN = windows or linux or macos or emscripten,
+            .SDL_VIDEO_DRIVER_OFFSCREEN = windows or linux or macos or emscripten or android,
             .SDL_VIDEO_DRIVER_PS2 = false,
             .SDL_VIDEO_DRIVER_PSP = false,
             .SDL_VIDEO_DRIVER_RISCOS = false,
@@ -520,11 +518,11 @@ pub fn build(b: *std.Build) !void {
             .SDL_FILESYSTEM_PSP = false,
             .SDL_FILESYSTEM_PS2 = false,
             .SDL_FILESYSTEM_N3DS = false,
-            .SDL_STORAGE_STEAM = windows or linux or macos,
+            .SDL_STORAGE_STEAM = windows or linux or macos or android,
             .SDL_FSOPS_POSIX = linux or macos or emscripten or android,
             .SDL_FSOPS_WINDOWS = windows,
             .SDL_FSOPS_DUMMY = false,
-            .SDL_CAMERA_DRIVER_DUMMY = windows or linux or macos or emscripten,
+            .SDL_CAMERA_DRIVER_DUMMY = windows or linux or macos or emscripten or android,
             .SDL_CAMERA_DRIVER_DISK = false,
             .SDL_CAMERA_DRIVER_V4L2 = linux,
             .SDL_CAMERA_DRIVER_COREMEDIA = macos,
@@ -607,7 +605,7 @@ pub fn build(b: *std.Build) !void {
         sdl_lib.lto = resolved_lto;
     }
 
-    sdl_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
+    if (!android) sdl_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
     sdl_mod.addCMacro("SDL_BUILD_MAJOR_VERSION", std.fmt.comptimePrint("{d}", .{version.major}));
     sdl_mod.addCMacro("SDL_BUILD_MINOR_VERSION", std.fmt.comptimePrint("{d}", .{version.minor}));
     sdl_mod.addCMacro("SDL_BUILD_MICRO_VERSION", std.fmt.comptimePrint("{d}", .{version.patch}));
@@ -619,13 +617,14 @@ pub fn build(b: *std.Build) !void {
             sdl_mod.addCMacro("DLL_EXPORT", "1");
         },
     }
+
     if (emscripten and emscripten_pthreads) {
         sdl_mod.addCMacro("__EMSCRIPTEN_PTHREADS__", "1");
         sdl_mod.addCMacro("_REENTRANT", "1");
     }
 
-    sdl_mod.addConfigHeader(build_config_h);
-    sdl_mod.addConfigHeader(revision_h);
+    if (!android) sdl_mod.addConfigHeader(build_config_h);
+    if (!android) sdl_mod.addConfigHeader(revision_h);
     sdl_mod.addIncludePath(b.path("include"));
     sdl_mod.addIncludePath(b.path("src"));
     sdl_mod.addSystemIncludePath(b.path("src/video/khronos"));
@@ -663,7 +662,7 @@ pub fn build(b: *std.Build) !void {
     }
     if (android) {
         sdl_c_flags.appendAssumeCapacity("-pthread");
-        sdl_lib.bundle_ubsan_rt = false;
+        //sdl_lib.bundle_ubsan_rt = false;
     }
 
     if (macos) {
@@ -847,45 +846,51 @@ pub fn build(b: *std.Build) !void {
     };
     switch (sdl_lib.linkage.?) {
         .static => {
-            sdl_mod.addCSourceFiles(.{
+            if (!android) sdl_mod.addCSourceFiles(.{
+                .flags = sdl_c_flags.slice(),
+                .files = &sdl_uclibc_c_files,
+            });
+            if (linux) sdl_mod.addCSourceFiles(.{
                 .flags = sdl_c_flags.slice(),
                 .files = &sdl_uclibc_c_files,
             });
         },
         .dynamic => {
             std.debug.assert(!emscripten);
-            const sdl_uclibc_mod = b.createModule(.{
-                .target = target,
-                .optimize = optimize,
-                .link_libc = true,
-                .strip = strip,
-                .sanitize_c = resolved_sanitize_c,
-                .pic = pic,
-            });
-            const sdl_uclibc_lib = b.addLibrary(.{
-                .linkage = .static,
-                .name = "SDL_uclib",
-                .root_module = sdl_uclibc_mod,
-            });
-            if (legacy_lto_field) {
-                sdl_uclibc_lib.want_lto = resolved_lto;
-            } else {
-                sdl_uclibc_lib.lto = resolved_lto;
+            if (!android) {
+                const sdl_uclibc_mod = b.createModule(.{
+                    .target = target,
+                    .optimize = optimize,
+                    .link_libc = true,
+                    .strip = strip,
+                    .sanitize_c = resolved_sanitize_c,
+                    .pic = pic,
+                });
+                const sdl_uclibc_lib = b.addLibrary(.{
+                    .linkage = .static,
+                    .name = "SDL_uclib",
+                    .root_module = sdl_uclibc_mod,
+                });
+                if (legacy_lto_field) {
+                    sdl_uclibc_lib.want_lto = resolved_lto;
+                } else {
+                    sdl_uclibc_lib.lto = resolved_lto;
+                }
+
+                if (!android) sdl_uclibc_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
+
+                if (!android) sdl_uclibc_mod.addConfigHeader(build_config_h);
+                if (!android) sdl_uclibc_mod.addConfigHeader(revision_h);
+                sdl_uclibc_mod.addIncludePath(b.path("include"));
+                sdl_uclibc_mod.addIncludePath(b.path("src"));
+
+                sdl_uclibc_mod.addCSourceFiles(.{
+                    .flags = &(common_c_flags ++ .{"-fvisibility=hidden"}),
+                    .files = &sdl_uclibc_c_files,
+                });
+
+                sdl_mod.linkLibrary(sdl_uclibc_lib);
             }
-
-            sdl_uclibc_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
-
-            sdl_uclibc_mod.addConfigHeader(build_config_h);
-            sdl_uclibc_mod.addConfigHeader(revision_h);
-            sdl_uclibc_mod.addIncludePath(b.path("include"));
-            sdl_uclibc_mod.addIncludePath(b.path("src"));
-
-            sdl_uclibc_mod.addCSourceFiles(.{
-                .flags = &(common_c_flags ++ .{"-fvisibility=hidden"}),
-                .files = &sdl_uclibc_c_files,
-            });
-
-            sdl_mod.linkLibrary(sdl_uclibc_lib);
         },
     }
 
@@ -996,10 +1001,6 @@ pub fn build(b: *std.Build) !void {
     }
 
     if (android) {
-        sdl_mod.addCMacro("_POSIX_C_SOURCE", "200809L");
-        sdl_mod.addCMacro("_XOPEN_SOURCE", "700");
-        sdl_mod.addCMacro("_GNU_SOURCE", "1");
-
         try sdl_c_flags.append("-fno-sanitize=undefined");
 
         sdl_mod.addCSourceFiles(.{
@@ -1472,9 +1473,10 @@ pub fn build(b: *std.Build) !void {
         sdl_test_lib.lto = resolved_lto;
     }
 
-    sdl_test_mod.addConfigHeader(build_config_h);
-    sdl_test_mod.addConfigHeader(revision_h);
+    if (!android) sdl_test_mod.addConfigHeader(build_config_h);
+    if (!android) sdl_test_mod.addConfigHeader(revision_h);
     sdl_test_mod.addIncludePath(b.path("include"));
+
     if (system_include_path) |path| {
         sdl_test_mod.addSystemIncludePath(path);
     }
