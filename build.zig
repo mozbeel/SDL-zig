@@ -435,7 +435,7 @@ pub fn build(b: *std.Build) !void {
             .SDL_VIDEO_DRIVER_KMSDRM_DYNAMIC = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.drm_soname}) else "",
             .SDL_VIDEO_DRIVER_KMSDRM_DYNAMIC_GBM = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.gbm_soname}) else "",
             .SDL_VIDEO_DRIVER_N3DS = false,
-            .SDL_VIDEO_DRIVER_OFFSCREEN = windows or linux or macos or emscripten or android,
+            .SDL_VIDEO_DRIVER_OFFSCREEN = windows or linux or macos or emscripten,
             .SDL_VIDEO_DRIVER_PS2 = false,
             .SDL_VIDEO_DRIVER_PSP = false,
             .SDL_VIDEO_DRIVER_RISCOS = false,
