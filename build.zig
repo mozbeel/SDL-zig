@@ -358,6 +358,8 @@ pub fn build(b: *std.Build) !void {
             .SDL_AUDIO_DRIVER_PS2 = false,
             .SDL_AUDIO_DRIVER_N3DS = false,
             .SDL_AUDIO_DRIVER_QNX = false,
+            .SDL_DISKAUDIO = android,
+            .SDL_AUDIO_DRIVER_DISK = android,
             .SDL_INPUT_LINUXEV = linux,
             .SDL_INPUT_LINUXKD = linux,
             .SDL_INPUT_FBSDKBIO = false,
