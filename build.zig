@@ -428,7 +428,7 @@ pub fn build(b: *std.Build) !void {
             .SDL_TIMER_N3DS = false,
             .SDL_VIDEO_DRIVER_ANDROID = android,
             .SDL_VIDEO_DRIVER_COCOA = macos,
-            .SDL_VIDEO_DRIVER_DUMMY = windows or linux or macos or emscripten or android,
+            .SDL_VIDEO_DRIVER_DUMMY = windows or linux or macos or emscripten,
             .SDL_VIDEO_DRIVER_EMSCRIPTEN = emscripten,
             .SDL_VIDEO_DRIVER_HAIKU = false,
             .SDL_VIDEO_DRIVER_KMSDRM = linux,
