@@ -1347,7 +1347,6 @@ pub fn build(b: *std.Build) !void {
                 "src/haptic/dummy/SDL_syshaptic.c",
                 "src/hidapi/ios/hid.m",
                 "src/joystick/apple/SDL_mfijoystick.m",
-                "src/joystick/darwin/SDL_iokitjoystick.c",
                 "src/joystick/virtual/SDL_virtualjoystick.c",
                 "src/loadso/dlopen/SDL_sysloadso.c",
                 "src/locale/macos/SDL_syslocale.m",
