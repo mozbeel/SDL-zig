@@ -376,7 +376,7 @@ pub fn build(b: *std.Build) !void {
             .SDL_JOYSTICK_GAMEINPUT = false,
             .SDL_JOYSTICK_HAIKU = false,
             .SDL_JOYSTICK_HIDAPI = windows or linux or macos or android,
-            .SDL_JOYSTICK_IOKIT = macos,
+            .SDL_JOYSTICK_IOKIT = macos or ios,
             .SDL_JOYSTICK_LINUX = linux,
             .SDL_JOYSTICK_MFI = macos or ios,
             .SDL_JOYSTICK_N3DS = false,
@@ -514,7 +514,7 @@ pub fn build(b: *std.Build) !void {
             .SDL_POWER_N3DS = false,
             .SDL_FILESYSTEM_ANDROID = android,
             .SDL_FILESYSTEM_HAIKU = false,
-            .SDL_FILESYSTEM_COCOA = macos,
+            .SDL_FILESYSTEM_COCOA = macos or ios,
             .SDL_FILESYSTEM_DUMMY = false,
             .SDL_FILESYSTEM_RISCOS = false,
             .SDL_FILESYSTEM_UNIX = linux or android,
@@ -1347,9 +1347,25 @@ pub fn build(b: *std.Build) !void {
                 "src/haptic/dummy/SDL_syshaptic.c",
                 "src/hidapi/ios/hid.m",
                 "src/joystick/apple/SDL_mfijoystick.m",
+                "src/joystick/darwin/SDL_iokitjoystick.c",
                 "src/joystick/virtual/SDL_virtualjoystick.c",
                 "src/loadso/dlopen/SDL_sysloadso.c",
                 "src/locale/macos/SDL_syslocale.m",
+                "src/main/ios/SDL_sysmain_callbacks.m",
+                "src/misc/ios/SDL_sysurl.m",
+                "src/power/uikit/SDL_syspower.m",
+                "src/render/metal/SDL_render_metal.m",
+                "src/sensor/coremotion/SDL_coremotionsensor.m",
+                "src/sensor/dummy/SDL_dummysensor.c",
+                "src/storage/generic/SDL_genericstorage.c",
+                "src/thread/pthread/SDL_systhread.c",
+                "src/thread/pthread/SDL_sysmutex.c",
+                "src/thread/pthread/SDL_syscond.c",
+                "src/thread/pthread/SDL_sysrwlock.c",
+                "src/thread/pthread/SDL_systls.c",
+                "src/thread/pthread/SDL_syssem.c",
+                "src/time/unix/SDL_systime.c",
+                "src/timer/unix/SDL_systimer.c",
                 "src/video/dummy/SDL_nullevents.c",
                 "src/video/dummy/SDL_nullframebuffer.c",
                 "src/video/dummy/SDL_nullvideo.c",
@@ -1367,11 +1383,6 @@ pub fn build(b: *std.Build) !void {
                 "src/video/uikit/SDL_uikitviewcontroller.m",
                 "src/video/uikit/SDL_uikitvulkan.m",
                 "src/video/uikit/SDL_uikitwindow.m",
-
-                "src/main/ios/SDL_sysmain_callbacks.m",
-
-                "src/haptic/dummy/SDL_syshaptic.c",
-                "src/power/uikit/SDL_syspower.m",
             },
         });
     }
@@ -1493,6 +1504,22 @@ pub fn build(b: *std.Build) !void {
         sdl_mod.linkFramework("Metal", .{});
         sdl_mod.linkFramework("QuartzCore", .{});
         sdl_mod.linkFramework("CoreHaptics", .{ .weak = true });
+    }
+    if (ios) {
+        sdl_mod.linkFramework("Foundation", .{});
+        sdl_mod.linkFramework("CoreVideo", .{});
+        sdl_mod.linkFramework("CoreMedia", .{});
+        sdl_mod.linkFramework("CoreAudio", .{});
+        sdl_mod.linkFramework("CoreMotion", .{});
+        sdl_mod.linkFramework("CoreGraphics", .{});
+        sdl_mod.linkFramework("AVFoundation", .{});
+        sdl_mod.linkFramework("AudioToolbox", .{});
+        sdl_mod.linkFramework("GameController", .{});
+        sdl_mod.linkFramework("CoreHaptics", .{ .weak = true });
+        sdl_mod.linkFramework("UIKit", .{});
+        sdl_mod.linkFramework("OpenGLES", .{});
+        sdl_mod.linkFramework("Metal", .{});
+        sdl_mod.linkFramework("QuartzCore", .{});
     }
 
     sdl_lib.installHeadersDirectory(b.path("include/SDL3"), "SDL3", .{
