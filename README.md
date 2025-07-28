@@ -47,14 +47,14 @@ x86_64-windows-gnu | ✅ | ✅ | ✅ | Works out of the box
 aarch64-windows-gnu | 🧪 | 🧪 | 🧪 | Works out of the box (experimental)
 x86_64-linux-gnu | ✅ | ✅ | ✅ | Works out of the box
 aarch64-linux-gnu | 🧪 | 🧪 | 🧪 | Works out of the box (experimental)
-x86_64-macos-none | ❌ | ❌ | 🉑 | Doesn't work without macOS SDK
-aarch64-macos-none | ❌ | ❌ | 🉑 | Doesn't work without macOS SDK
+x86_64-macos-none | ❌ | ❌ | ✅ | Doesn't work without macOS SDK
+aarch64-macos-none | ❌ | ❌ | ✅ | Doesn't work without macOS SDK
 x86_64-linux-android | 🉑 | 🉑 | 🉑 | Requires Android SDK and NDK
 x86-linux-android | 🉑 | 🉑 | 🉑 | Requires Android SDK and NDK
 aarch64-linux-android | 🉑 | 🉑 | 🉑 | Requires Android SDK and NDK
 arm-linux-android | 🉑 | 🉑 | 🉑 | Requires Android SDK and NDK
-x86_64-ios | ❌ | ❌ | 🔜 | Doesn't work without iOS SDK
-aarch64-ios | ❌ | ❌ | 🔜 | Doesn't work without iOS SDK
+x86_64-ios | ❌ | ❌ | ✅ | Doesn't work without iOS SDK
+aarch64-ios | ❌ | ❌ | ✅ | Doesn't work without iOS SDK
 wasm32-emscripten-musl | 🉑 | 🉑 | 🉑 | Requires EMSDK
 wasm64-emscripten-musl | 🉑 | 🉑 | 🉑 | Requires EMSDK
 
@@ -81,7 +81,7 @@ The [SDL_linux_deps](https://github.com/castholm/SDL_linux_deps) package provide
 
 ### macOS
 
-Building for x86-64 or AArch64 macOS requires Xcode 14.1 or later to be installed on the host macOS system.
+Building for x86-64 or AArch64 macOS requires Xcode 14.0 or later to be installed on the host macOS system.
 
 > [!NOTE]
 > **Cross-compiling for macOS from Windows or Linux host systems is not supported** because [the Xcode and Apple SDKs Agreement](https://www.apple.com/legal/sla/docs/xcode.pdf) explicitly prohibits using macOS SDK files from non-Apple-branded computers or devices.
@@ -127,7 +127,17 @@ For Android you need the Android Sdk and the Android Ndk and with <a href="https
 
 ### iOS
 
-TODO
+Building for x86-64 or AArch64 iOS requires Xcode 14.0 or later to be installed on the host macOS system.
+
+> [!NOTE]
+> **Cross-compiling for iOS from Windows or Linux host systems is not supported** because [the Xcode and Apple SDKs Agreement](https://www.apple.com/legal/sla/docs/xcode.pdf) explicitly prohibits using macOS SDK files from non-Apple-branded computers or devices.
+
+When building for non-native iOS targets (for example for x86-64 from an AArch64 Mac), you need to provide a path to the iOS SDK sysroot via `--sysroot`:
+
+```sh
+sysroot_path=$(xcrun --sdk macosx --show-sdk-path)
+zig build -Dtarget=x86_64-macos --sysroot "$sysroot_path"
+```
 
 ## License
 
