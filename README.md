@@ -140,7 +140,7 @@ zig build -Dtarget=x86_64-ios --sysroot "$sysroot_path"
 
 ## Shoutouts
 
-Big Shoutout to @stark26583 for making an Android template. It really helped me out. He deserves more recognition. So definetely check this repo out too and star it: https://github.com/stark26583/SDL
+Big Shoutout to <a href="https://github.com/stark26583">@stark26583</a> for making an Android template. It really helped me out. He deserves more recognition. So definetely check this repo out too and star it: https://github.com/stark26583/SDL
 
 ## License
 
