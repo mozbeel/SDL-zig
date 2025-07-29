@@ -1363,6 +1363,7 @@ pub fn build(b: *std.Build) !void {
                 "src/thread/pthread/SDL_sysrwlock.c",
                 "src/thread/pthread/SDL_systls.c",
                 "src/thread/pthread/SDL_syssem.c",
+                "src/tray/dummy/SDL_tray.c",
                 "src/time/unix/SDL_systime.c",
                 "src/timer/unix/SDL_systimer.c",
                 "src/video/dummy/SDL_nullevents.c",
