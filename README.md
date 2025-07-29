@@ -12,7 +12,7 @@ This is a port of [SDL](https://libsdl.org/) to the Zig build system, packaged f
 Requires Zig 0.14.1 or 0.15.0-dev (master).
 
 ```sh
-zig fetch --save git+https://github.com/castholm/SDL.git
+zig fetch --save git+https://github.com/mozbeel/SDL-zig
 ```
 
 ```zig
@@ -64,7 +64,6 @@ Legend:
 - 🉑 Supported, but requires external SDKs
 - 🧪 Experimental
 - ❌ Not supported
-- 🔜 Soon
 
 ## Template for cross-compiling
 If you need a quick example or template on how to cross-compile for all supported platforms this template by me is recommended: https://github.com/mozbeel/zig-sdl3-cross-template
