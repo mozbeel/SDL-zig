@@ -127,16 +127,16 @@ For Android you need the Android Sdk and the Android Ndk and with <a href="https
 
 ### iOS
 
-Building for x86-64 or AArch64 iOS requires Xcode 14.0 or later to be installed on the host macOS system.
+Building for x86-64 or AArch64 iOS requires Xcode 14.3 or later to be installed on the host macOS system.
 
 > [!NOTE]
 > **Cross-compiling for iOS from Windows or Linux host systems is not supported** because [the Xcode and Apple SDKs Agreement](https://www.apple.com/legal/sla/docs/xcode.pdf) explicitly prohibits using macOS SDK files from non-Apple-branded computers or devices.
 
-When building for non-native iOS targets (for example for x86-64 from an AArch64 Mac), you need to provide a path to the iOS SDK sysroot via `--sysroot`:
+When building for iOS, you always need to provide a path to the iOS SDK sysroot via `--sysroot`:
 
 ```sh
 sysroot_path=$(xcrun --sdk macosx --show-sdk-path)
-zig build -Dtarget=x86_64-macos --sysroot "$sysroot_path"
+zig build -Dtarget=x86_64-ios --sysroot "$sysroot_path"
 ```
 
 ## License
