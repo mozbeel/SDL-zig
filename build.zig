@@ -376,7 +376,7 @@ pub fn build(b: *std.Build) !void {
             .SDL_JOYSTICK_GAMEINPUT = false,
             .SDL_JOYSTICK_HAIKU = false,
             .SDL_JOYSTICK_HIDAPI = windows or linux or macos or android,
-            .SDL_JOYSTICK_IOKIT = macos or ios,
+            .SDL_JOYSTICK_IOKIT = macos,
             .SDL_JOYSTICK_LINUX = linux,
             .SDL_JOYSTICK_MFI = macos or ios,
             .SDL_JOYSTICK_N3DS = false,
@@ -1348,7 +1348,6 @@ pub fn build(b: *std.Build) !void {
                 "src/hidapi/ios/hid.m",
                 "src/joystick/apple/SDL_mfijoystick.m",
                 "src/joystick/virtual/SDL_virtualjoystick.c",
-                "src/joystick/darwin/SDL_iokitjoystick.c",
                 "src/loadso/dlopen/SDL_sysloadso.c",
                 "src/locale/macos/SDL_syslocale.m",
                 "src/main/ios/SDL_sysmain_callbacks.m",
@@ -1517,8 +1516,6 @@ pub fn build(b: *std.Build) !void {
         sdl_mod.linkFramework("GameController", .{});
         sdl_mod.linkFramework("CoreHaptics", .{ .weak = true });
         sdl_mod.linkFramework("UIKit", .{});
-        sdl_mod.linkFramework("IOKit", .{});
-
         sdl_mod.linkFramework("OpenGLES", .{});
         sdl_mod.linkFramework("Metal", .{});
         sdl_mod.linkFramework("QuartzCore", .{});
