@@ -121,7 +121,7 @@ pub fn build(b: *std.Build) !void {
                 system_framework_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) };
                 library_path = .{ .cwd_relative = "/usr/lib" }; // ???
             } else if (!target.query.isNative()) {
-                std.log.err("'--sysroot' is required when building SDL for non Macs", .{});
+                std.log.err("'--sysroot' is required when building SDL for iOS", .{});
                 std.process.exit(1);
             }
         },
