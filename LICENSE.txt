@@ -26,6 +26,7 @@
 © 2024 Igalia S.L.
 © 2024 Microsoft Corporation
 © 2024 Wim Taymans <wtaymans@redhat.com>
+@ 2025 Matthias Leeb <matthiasleeb4@gmail.com>
 
 SPDX-License-Identifier: (BSD-3-Clause OR GPL-3.0 OR HIDAPI) AND Apache-2.0 AND BSD-3-Clause AND CC0-1.0 AND HIDAPI AND HPND-sell-variant AND MIT AND SunPro AND Zlib
 
