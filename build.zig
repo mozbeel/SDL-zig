@@ -1517,6 +1517,8 @@ pub fn build(b: *std.Build) !void {
         sdl_mod.linkFramework("GameController", .{});
         sdl_mod.linkFramework("CoreHaptics", .{ .weak = true });
         sdl_mod.linkFramework("UIKit", .{});
+        sdl_mod.linkFramework("IOKit", .{});
+
         sdl_mod.linkFramework("OpenGLES", .{});
         sdl_mod.linkFramework("Metal", .{});
         sdl_mod.linkFramework("QuartzCore", .{});
