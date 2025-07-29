@@ -138,6 +138,10 @@ sysroot_path=$(xcrun --sdk macosx --show-sdk-path)
 zig build -Dtarget=x86_64-ios --sysroot "$sysroot_path"
 ```
 
+## Shoutouts
+
+Big Shoutout to @stark26583 for making an Android template. It really helped me out. He deserves more recognition. So definetely check this repo out too and star it: https://github.com/stark26583/SDL
+
 ## License
 
 This repository is [REUSE-compliant](https://reuse.software/). The effective SPDX license expression for the repository as a whole is:
