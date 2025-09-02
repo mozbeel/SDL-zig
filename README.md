@@ -41,37 +41,52 @@ Example projects using this SDL package:
 
 ## Supported targets
 
+First-class targets (fully supported):
+
 Target \\ Host|Windows|Linux|macOS
 -|:-:|:-:|:-:
 `x86_64-windows-gnu`|✅|✅|✅
-`aarch64-windows-gnu`|🧪|🧪|🧪
 `x86_64-linux-gnu`|✅|✅|✅
-`aarch64-linux-gnu`|🧪|🧪|🧪
-`x86_64-macos-none`|❌|❌|🉑
 `aarch64-macos-none`|❌|❌|🉑
 `wasm32-emscripten-musl`|🉑|🉑|🉑
-`wasm64-emscripten-musl`|🉑|🉑|🉑
+
+Second-class targets (will likely work, but not as actively tested):
+
+Target \\ Host|Windows|Linux|macOS
+-|:-:|:-:|:-:
+`aarch64-windows-gnu`|✅|✅|✅
+`x86_64-windows-msvc`|🉑|❌|❌
+`aarch64-windows-msvc`|🉑|❌|❌
+`x86_64-macos-none`|❌|❌|🉑
+`aarch64-linux-gnu`|✅|✅|✅
+`x86_64-linux-musl`|✅|✅|✅
+`aarch64-linux-musl`|✅|✅|✅
 
 Legend:
 
 - ✅ Supported
 - 🉑 Supported, but requires external SDKs
-- 🧪 Experimental
 - ❌ Not supported
 
 ### Windows
 
-Building for x86-64 Windows from any host system works out of the box. AArch64 Windows support is experimental and not yet actively tested.
+Building for `x86_64-windows-gnu` from any host system works out of the box.
+
+Building for `msvc` targets requires Microsoft Visual C++ and the Windows 11 SDK to be installed on the host Windows system.
+
+`aarch64` Windows support is experimental and not yet actively tested.
 
 ### Linux
 
-Building for x86-64 Linux from any host system works out of the box. AArch64 Linux support is experimental and not yet actively tested.
+Building for `x86_64-linux-gnu/musl` from any host system works out of the box.
 
 The [SDL_linux_deps](https://github.com/castholm/SDL_linux_deps) package provides supplementary headers and source files required for compiling for Linux.
 
+`aarch64` Linux support is experimental and not yet actively tested.
+
 ### macOS
 
-Building for x86-64 or AArch64 macOS requires Xcode 14.1 or later to be installed on the host macOS system.
+Building for `aarch64/x86_64-macos` requires Xcode 14.1 or later to be installed on the host macOS system.
 
 > [!NOTE]
 > **Cross-compiling for macOS from Windows or Linux host systems is not supported** because [the Xcode and Apple SDKs Agreement](https://www.apple.com/legal/sla/docs/xcode.pdf) explicitly prohibits using macOS SDK files from non-Apple-branded computers or devices.
@@ -97,7 +112,7 @@ zig build -Dtarget=x86_64-macos --sysroot "$sysroot_path"
 >
 > Refer to [the example projects](#examples) for examples on how to set up your `build.zig` for building for the Web.
 
-Building for Emscripten requires an Emscripten development environment to be set up on the host system. It is strongly recommended that you use [the Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html) to install and manage Emscripten.
+Building for `wasm32-emscripten` requires an Emscripten development environment to be set up on the host system. It is strongly recommended that you use [the Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html) to install and manage Emscripten.
 
 When building for Emscripten, you need to provide a path to the Emscripten sysroot via `--sysroot`:
 

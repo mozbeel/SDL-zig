@@ -15,10 +15,6 @@ pub fn build(b: *std.Build) void {
         std.builtin.LinkMode,
         "preferred_linkage",
         "Prefer building statically or dynamically linked libraries (default: static)",
-    ) orelse b.option(
-        std.builtin.LinkMode,
-        "preferred_link_mode",
-        "Deprecated; use 'preferred_linkage' instead",
     ) orelse .static;
     const strip = b.option(
         bool,
@@ -59,18 +55,18 @@ pub fn build(b: *std.Build) void {
     var system_include_path: ?std.Build.LazyPath = null;
     var system_framework_path: ?std.Build.LazyPath = null;
     var library_path: ?std.Build.LazyPath = null;
-    var glibc = false;
-    var musl = false;
+    var msvc = false; // Assume mingw-w64 as the default for Windows
+    var musl = false; // Assume glibc as the default for Linux
     switch (target.result.os.tag) {
         .windows => {
             windows = true;
+            msvc = target.result.abi == .msvc;
         },
         .linux => {
             linux = true;
             if (b.lazyImport(@This(), "sdl_linux_deps")) |build_zig| {
                 linux_deps_values = LinuxDepsValues.fromBuildZig(b, build_zig);
             }
-            glibc = target.result.abi.isGnu();
             musl = target.result.abi.isMusl();
         },
         .macos => {
@@ -124,7 +120,7 @@ pub fn build(b: *std.Build) void {
             .HAVE_SIGNAL_H = windows or linux or macos or emscripten,
             .HAVE_STDIO_H = windows or linux or macos or emscripten,
             .HAVE_STDLIB_H = windows or linux or macos or emscripten,
-            .HAVE_STRINGS_H = windows or linux or macos or emscripten,
+            .HAVE_STRINGS_H = (windows and !msvc) or linux or macos or emscripten,
             .HAVE_STRING_H = windows or linux or macos or emscripten,
             .HAVE_SYS_TYPES_H = windows or linux or macos or emscripten,
             .HAVE_WCHAR_H = windows or linux or macos or emscripten,
@@ -153,8 +149,8 @@ pub fn build(b: *std.Build) void {
             .HAVE_WCSTOL = windows or linux or macos or emscripten,
             .HAVE_STRLEN = windows or linux or macos or emscripten,
             .HAVE_STRNLEN = windows or linux or macos or emscripten,
-            .HAVE_STRLCPY = linux and musl or macos or emscripten,
-            .HAVE_STRLCAT = linux and musl or macos or emscripten,
+            .HAVE_STRLCPY = (linux and musl) or macos or emscripten,
+            .HAVE_STRLCAT = (linux and musl) or macos or emscripten,
             .HAVE_STRPBRK = windows or linux or macos or emscripten,
             .HAVE__STRREV = windows,
             .HAVE_INDEX = linux or macos or emscripten,
@@ -163,7 +159,7 @@ pub fn build(b: *std.Build) void {
             .HAVE_STRRCHR = windows or linux or macos or emscripten,
             .HAVE_STRSTR = windows or linux or macos or emscripten,
             .HAVE_STRNSTR = macos,
-            .HAVE_STRTOK_R = windows or linux or macos or emscripten,
+            .HAVE_STRTOK_R = (windows and !msvc) or linux or macos or emscripten,
             .HAVE_ITOA = windows,
             .HAVE__LTOA = windows,
             .HAVE__UITOA = false,
@@ -205,10 +201,10 @@ pub fn build(b: *std.Build) void {
             .HAVE_FMOD = windows or linux or macos or emscripten,
             .HAVE_FMODF = windows or linux or macos or emscripten,
             .HAVE_ISINF = windows or linux or macos or emscripten,
-            .HAVE_ISINFF = linux and !musl or emscripten,
+            .HAVE_ISINFF = (linux and !musl) or emscripten,
             .HAVE_ISINF_FLOAT_MACRO = windows or linux or macos or emscripten,
             .HAVE_ISNAN = windows or linux or macos or emscripten,
-            .HAVE_ISNANF = linux and !musl or emscripten,
+            .HAVE_ISNANF = (linux and !musl) or emscripten,
             .HAVE_ISNAN_FLOAT_MACRO = windows or linux or macos or emscripten,
             .HAVE_LOG = windows or linux or macos or emscripten,
             .HAVE_LOGF = windows or linux or macos or emscripten,
@@ -233,9 +229,9 @@ pub fn build(b: *std.Build) void {
             .HAVE_TRUNC = windows or linux or macos or emscripten,
             .HAVE_TRUNCF = windows or linux or macos or emscripten,
             .HAVE__FSEEKI64 = windows,
-            .HAVE_FOPEN64 = windows or linux and !musl or emscripten,
-            .HAVE_FSEEKO = windows or linux or macos or emscripten,
-            .HAVE_FSEEKO64 = windows or linux and !musl or emscripten,
+            .HAVE_FOPEN64 = (windows and !msvc) or (linux and !musl) or emscripten,
+            .HAVE_FSEEKO = (windows and !msvc) or linux or macos or emscripten,
+            .HAVE_FSEEKO64 = (windows and !msvc) or (linux and !musl) or emscripten,
             .HAVE_MEMFD_CREATE = linux,
             .HAVE_POSIX_FALLOCATE = linux or emscripten,
             .HAVE_SIGACTION = linux or macos or emscripten,
@@ -276,12 +272,12 @@ pub fn build(b: *std.Build) void {
             .HAVE_DINPUT_H = windows,
             .HAVE_XINPUT_H = windows,
             .HAVE_WINDOWS_GAMING_INPUT_H = false,
-            .HAVE_GAMEINPUT_H = false,
+            .HAVE_GAMEINPUT_H = (windows and msvc),
             .HAVE_DXGI_H = windows,
             .HAVE_DXGI1_6_H = windows,
             .HAVE_MMDEVICEAPI_H = windows,
             .HAVE_TPCSHRD_H = windows,
-            .HAVE_ROAPI_H = windows,
+            .HAVE_ROAPI_H = (windows and !msvc),
             .HAVE_SHELLSCALINGAPI_H = windows,
             .USE_POSIX_SPAWN = false,
             .SDL_DEFAULT_ASSERT_LEVEL_CONFIGURED = false,
@@ -297,7 +293,7 @@ pub fn build(b: *std.Build) void {
             .SDL_POWER_DISABLED = false,
             .SDL_SENSOR_DISABLED = false,
             .SDL_DIALOG_DISABLED = false,
-            .SDL_THREADS_DISABLED = emscripten and !emscripten_pthreads,
+            .SDL_THREADS_DISABLED = (emscripten and !emscripten_pthreads),
             .SDL_AUDIO_DRIVER_ALSA = linux,
             .SDL_AUDIO_DRIVER_ALSA_DYNAMIC = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.alsa_soname}) else "",
             .SDL_AUDIO_DRIVER_OPENSLES = false,
@@ -333,7 +329,7 @@ pub fn build(b: *std.Build) void {
             .SDL_JOYSTICK_DINPUT = windows,
             .SDL_JOYSTICK_DUMMY = false,
             .SDL_JOYSTICK_EMSCRIPTEN = emscripten,
-            .SDL_JOYSTICK_GAMEINPUT = false,
+            .SDL_JOYSTICK_GAMEINPUT = (windows and msvc),
             .SDL_JOYSTICK_HAIKU = false,
             .SDL_JOYSTICK_HIDAPI = windows or linux or macos,
             .SDL_JOYSTICK_IOKIT = macos,
@@ -369,8 +365,8 @@ pub fn build(b: *std.Build) void {
             .SDL_LOADSO_WINDOWS = windows,
             .SDL_THREAD_GENERIC_COND_SUFFIX = windows,
             .SDL_THREAD_GENERIC_RWLOCK_SUFFIX = windows,
-            .SDL_THREAD_PTHREAD = linux or macos or emscripten and emscripten_pthreads,
-            .SDL_THREAD_PTHREAD_RECURSIVE_MUTEX = linux or macos or emscripten and emscripten_pthreads,
+            .SDL_THREAD_PTHREAD = linux or macos or (emscripten and emscripten_pthreads),
+            .SDL_THREAD_PTHREAD_RECURSIVE_MUTEX = linux or macos or (emscripten and emscripten_pthreads),
             .SDL_THREAD_PTHREAD_RECURSIVE_MUTEX_NP = false,
             .SDL_THREAD_WINDOWS = windows,
             .SDL_THREAD_VITA = false,
@@ -578,6 +574,16 @@ pub fn build(b: *std.Build) void {
             sdl_mod.addCMacro("DLL_EXPORT", "1");
         },
     }
+    if (windows and msvc) {
+        sdl_mod.addCMacro("_CRT_NONSTDC_NO_DEPRECATE", "1");
+        sdl_mod.addCMacro("_CRT_NONSTDC_NO_WARNINGS ", "1");
+        sdl_mod.addCMacro("_CRT_SECURE_NO_DEPRECATE", "1");
+        sdl_mod.addCMacro("_CRT_SECURE_NO_WARNINGS", "1");
+        // Fix "duplicate symbol" errors by redefining a problematic weak symbol definition in
+        // wchar.h which was introduced in Windows SDK version 10.0.26100.0 and which LLVM
+        // doesn't understand how to handle.
+        sdl_mod.addCMacro("_Avx2WmemEnabledWeakValue", "_Avx2WmemEnabled");
+    }
     if (emscripten and emscripten_pthreads) {
         sdl_mod.addCMacro("__EMSCRIPTEN_PTHREADS__", "1");
         sdl_mod.addCMacro("_REENTRANT", "1");
@@ -593,7 +599,7 @@ pub fn build(b: *std.Build) void {
         sdl_mod.addSystemIncludePath(deps_values.dependency.path("include"));
         // Currently, the only difference between these two sets of target-specific headers
         // is that the x86_64 one defines G_VA_COPY_AS_ARRAY and the aarch64 one doesn't.
-        if (target.result.cpu.arch == .x86_64 and glibc) {
+        if (target.result.cpu.arch == .x86_64 and !musl) {
             sdl_mod.addSystemIncludePath(deps_values.dependency.path("include/x86_64-linux-gnu"));
         }
         // TODO: musl targets can piggyback off of the aarch64-linux-gnu headers for now because
@@ -941,6 +947,14 @@ pub fn build(b: *std.Build) void {
                 "src/main/generic/SDL_sysmain_callbacks.c",
             },
         });
+        if (msvc) {
+            sdl_mod.addCSourceFiles(.{
+                .flags = sdl_c_flags.items,
+                .files = &.{
+                    "src/joystick/gdk/SDL_gameinputjoystick.c",
+                },
+            });
+        }
         if (sdl_lib.linkage.? == .dynamic) {
             sdl_mod.addWin32ResourceFile(.{ .file = b.path("src/core/windows/version.rc") });
         }
@@ -1249,6 +1263,9 @@ pub fn build(b: *std.Build) void {
         sdl_mod.linkSystemLibrary("setupapi", .{});
         sdl_mod.linkSystemLibrary("shell32", .{});
         sdl_mod.linkSystemLibrary("dinput8", .{});
+        if (msvc) {
+            sdl_mod.linkSystemLibrary("oldnames", .{});
+        }
     }
     if (macos) {
         sdl_mod.linkFramework("CoreMedia", .{});
