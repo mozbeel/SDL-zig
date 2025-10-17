@@ -8,7 +8,7 @@ const formatted_version = std.fmt.comptimePrint("SDL-{f}", .{version});
 pub const vendor_info = "https://github.com/castholm/SDL 0.3.1";
 pub const revision = formatted_version ++ " (" ++ vendor_info ++ ")";
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const preferred_linkage = b.option(
@@ -49,8 +49,10 @@ pub fn build(b: *std.Build) void {
 
     var windows = false;
     var linux = false;
+    var android = false;
     var linux_deps_values: ?LinuxDepsValues = null;
     var macos = false;
+    var ios = false;
     var emscripten = false;
     var system_include_path: ?std.Build.LazyPath = null;
     var system_framework_path: ?std.Build.LazyPath = null;
@@ -63,11 +65,15 @@ pub fn build(b: *std.Build) void {
             msvc = target.result.abi == .msvc;
         },
         .linux => {
-            linux = true;
-            if (b.lazyImport(@This(), "sdl_linux_deps")) |build_zig| {
-                linux_deps_values = LinuxDepsValues.fromBuildZig(b, build_zig);
+            if (target.result.abi == .android or target.result.abi == .androideabi) {
+                android = true;
+            } else {
+                linux = true;
+                if (b.lazyImport(@This(), "sdl_linux_deps")) |build_zig| {
+                    linux_deps_values = LinuxDepsValues.fromBuildZig(b, build_zig);
+                }
+                musl = target.result.abi.isMusl();
             }
-            musl = target.result.abi.isMusl();
         },
         .macos => {
             macos = true;
@@ -80,6 +86,18 @@ pub fn build(b: *std.Build) void {
                 std.process.exit(1);
             }
         },
+        .ios => {
+            ios = true;
+            if (b.sysroot) |sysroot| {
+                system_include_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "usr/include" }) };
+                system_framework_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) };
+                library_path = .{ .cwd_relative = "/usr/lib" }; // ???
+            } else if (!target.query.isNative()) {
+                std.log.err("'--sysroot' is required when building SDL for iOS", .{});
+                std.process.exit(1);
+            }
+        },
+
         .emscripten => {
             emscripten = true;
             if (b.sysroot) |sysroot| {
@@ -102,167 +120,167 @@ pub fn build(b: *std.Build) void {
             .style = .{ .cmake = b.path("include/build_config/SDL_build_config.h.cmake") },
             .include_path = "SDL_build_config.h",
         }, .{
-            .HAVE_GCC_ATOMICS = windows or linux or macos or emscripten,
+            .HAVE_GCC_ATOMICS = windows or linux or macos or emscripten or ios or android,
             .HAVE_GCC_SYNC_LOCK_TEST_AND_SET = false,
             .SDL_DISABLE_ALLOCA = false,
-            .HAVE_FLOAT_H = windows or linux or macos or emscripten,
-            .HAVE_STDARG_H = windows or linux or macos or emscripten,
-            .HAVE_STDDEF_H = windows or linux or macos or emscripten,
-            .HAVE_STDINT_H = windows or linux or macos or emscripten,
-            .HAVE_LIBC = windows or linux or macos or emscripten,
-            .HAVE_ALLOCA_H = linux or macos or emscripten,
-            .HAVE_ICONV_H = linux or macos or emscripten,
-            .HAVE_INTTYPES_H = windows or linux or macos or emscripten,
-            .HAVE_LIMITS_H = windows or linux or macos or emscripten,
-            .HAVE_MALLOC_H = windows or linux or emscripten,
-            .HAVE_MATH_H = windows or linux or macos or emscripten,
-            .HAVE_MEMORY_H = windows or linux or macos or emscripten,
-            .HAVE_SIGNAL_H = windows or linux or macos or emscripten,
-            .HAVE_STDIO_H = windows or linux or macos or emscripten,
-            .HAVE_STDLIB_H = windows or linux or macos or emscripten,
-            .HAVE_STRINGS_H = (windows and !msvc) or linux or macos or emscripten,
-            .HAVE_STRING_H = windows or linux or macos or emscripten,
-            .HAVE_SYS_TYPES_H = windows or linux or macos or emscripten,
-            .HAVE_WCHAR_H = windows or linux or macos or emscripten,
+            .HAVE_FLOAT_H = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STDARG_H = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STDDEF_H = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STDINT_H = windows or linux or macos or emscripten or android or ios,
+            .HAVE_LIBC = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ALLOCA_H = linux or macos or emscripten or ios,
+            .HAVE_ICONV_H = linux or macos or emscripten or ios,
+            .HAVE_INTTYPES_H = windows or linux or macos or emscripten or android or ios,
+            .HAVE_LIMITS_H = windows or linux or macos or emscripten or android or ios,
+            .HAVE_MALLOC_H = windows or linux or emscripten or ios,
+            .HAVE_MATH_H = windows or linux or macos or emscripten or android or ios,
+            .HAVE_MEMORY_H = windows or linux or macos or emscripten or android or ios,
+            .HAVE_SIGNAL_H = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STDIO_H = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STDLIB_H = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STRINGS_H = (windows and !msvc) or linux or macos or emscripten or android or ios,
+            .HAVE_STRING_H = windows or linux or macos or emscripten or android or ios,
+            .HAVE_SYS_TYPES_H = windows or linux or macos or emscripten or android or ios,
+            .HAVE_WCHAR_H = windows or linux or macos or emscripten or android or ios,
             .HAVE_PTHREAD_NP_H = false,
-            .HAVE_DLOPEN = linux or macos or emscripten,
-            .HAVE_MALLOC = windows or linux or macos or emscripten,
+            .HAVE_DLOPEN = linux or macos or emscripten or android or ios,
+            .HAVE_MALLOC = windows or linux or macos or emscripten or android or ios,
             .HAVE_FDATASYNC = linux or emscripten,
-            .HAVE_GETENV = windows or linux or macos or emscripten,
-            .HAVE_GETHOSTNAME = linux or macos or emscripten,
-            .HAVE_SETENV = linux or macos or emscripten,
-            .HAVE_PUTENV = windows or linux or macos or emscripten,
-            .HAVE_UNSETENV = linux or macos or emscripten,
-            .HAVE_ABS = windows or linux or macos or emscripten,
-            .HAVE_BCOPY = linux or macos or emscripten,
-            .HAVE_MEMSET = windows or linux or macos or emscripten,
-            .HAVE_MEMCPY = windows or linux or macos or emscripten,
-            .HAVE_MEMMOVE = windows or linux or macos or emscripten,
-            .HAVE_MEMCMP = windows or linux or macos or emscripten,
-            .HAVE_WCSLEN = windows or linux or macos or emscripten,
-            .HAVE_WCSNLEN = windows or linux or macos or emscripten,
-            .HAVE_WCSLCPY = macos,
-            .HAVE_WCSLCAT = macos,
-            .HAVE_WCSSTR = windows or linux or macos or emscripten,
-            .HAVE_WCSCMP = windows or linux or macos or emscripten,
-            .HAVE_WCSNCMP = windows or linux or macos or emscripten,
-            .HAVE_WCSTOL = windows or linux or macos or emscripten,
-            .HAVE_STRLEN = windows or linux or macos or emscripten,
-            .HAVE_STRNLEN = windows or linux or macos or emscripten,
-            .HAVE_STRLCPY = (linux and musl) or macos or emscripten,
-            .HAVE_STRLCAT = (linux and musl) or macos or emscripten,
-            .HAVE_STRPBRK = windows or linux or macos or emscripten,
+            .HAVE_GETENV = windows or linux or macos or emscripten or android or ios,
+            .HAVE_GETHOSTNAME = linux or macos or emscripten or ios,
+            .HAVE_SETENV = linux or macos or emscripten or ios,
+            .HAVE_PUTENV = windows or linux or macos or emscripten or android or ios,
+            .HAVE_UNSETENV = linux or macos or emscripten or ios,
+            .HAVE_ABS = windows or linux or macos or emscripten or android or ios,
+            .HAVE_BCOPY = linux or macos or emscripten or ios,
+            .HAVE_MEMSET = windows or linux or macos or emscripten or android or ios,
+            .HAVE_MEMCPY = windows or linux or macos or emscripten or android or ios,
+            .HAVE_MEMMOVE = windows or linux or macos or emscripten or android or ios,
+            .HAVE_MEMCMP = windows or linux or macos or emscripten or android or ios,
+            .HAVE_WCSLEN = windows or linux or macos or emscripten or android or ios,
+            .HAVE_WCSNLEN = windows or linux or macos or emscripten or android or ios,
+            .HAVE_WCSLCPY = macos or ios,
+            .HAVE_WCSLCAT = macos or ios,
+            .HAVE_WCSSTR = windows or linux or macos or emscripten or android or ios,
+            .HAVE_WCSCMP = windows or linux or macos or emscripten or android or ios,
+            .HAVE_WCSNCMP = windows or linux or macos or emscripten or android or ios,
+            .HAVE_WCSTOL = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STRLEN = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STRNLEN = windows or linux or macos or emscripten or android,
+            .HAVE_STRLCPY = (linux and musl) or macos or emscripten or ios,
+            .HAVE_STRLCAT = (linux and musl) or macos or emscripten or ios,
+            .HAVE_STRPBRK = windows or linux or macos or emscripten or android or ios,
             .HAVE__STRREV = windows,
-            .HAVE_INDEX = linux or macos or emscripten,
-            .HAVE_RINDEX = linux or macos or emscripten,
-            .HAVE_STRCHR = windows or linux or macos or emscripten,
-            .HAVE_STRRCHR = windows or linux or macos or emscripten,
-            .HAVE_STRSTR = windows or linux or macos or emscripten,
-            .HAVE_STRNSTR = macos,
-            .HAVE_STRTOK_R = (windows and !msvc) or linux or macos or emscripten,
+            .HAVE_INDEX = linux or macos or emscripten or ios,
+            .HAVE_RINDEX = linux or macos or emscripten or ios,
+            .HAVE_STRCHR = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STRRCHR = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STRSTR = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STRNSTR = macos or ios,
+            .HAVE_STRTOK_R = (windows and !msvc) or linux or macos or emscripten or android or ios,
             .HAVE_ITOA = windows,
             .HAVE__LTOA = windows,
             .HAVE__UITOA = false,
             .HAVE__ULTOA = windows,
-            .HAVE_STRTOL = windows or linux or macos or emscripten,
-            .HAVE_STRTOUL = windows or linux or macos or emscripten,
+            .HAVE_STRTOL = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STRTOUL = windows or linux or macos or emscripten or android or ios,
             .HAVE__I64TOA = windows,
             .HAVE__UI64TOA = windows,
-            .HAVE_STRTOLL = windows or linux or macos or emscripten,
-            .HAVE_STRTOULL = windows or linux or macos or emscripten,
-            .HAVE_STRTOD = windows or linux or macos or emscripten,
-            .HAVE_ATOI = windows or linux or macos or emscripten,
-            .HAVE_ATOF = windows or linux or macos or emscripten,
-            .HAVE_STRCMP = windows or linux or macos or emscripten,
-            .HAVE_STRNCMP = windows or linux or macos or emscripten,
-            .HAVE_VSSCANF = windows or linux or macos or emscripten,
-            .HAVE_VSNPRINTF = windows or linux or macos or emscripten,
-            .HAVE_ACOS = windows or linux or macos or emscripten,
-            .HAVE_ACOSF = windows or linux or macos or emscripten,
-            .HAVE_ASIN = windows or linux or macos or emscripten,
-            .HAVE_ASINF = windows or linux or macos or emscripten,
-            .HAVE_ATAN = windows or linux or macos or emscripten,
-            .HAVE_ATANF = windows or linux or macos or emscripten,
-            .HAVE_ATAN2 = windows or linux or macos or emscripten,
-            .HAVE_ATAN2F = windows or linux or macos or emscripten,
-            .HAVE_CEIL = windows or linux or macos or emscripten,
-            .HAVE_CEILF = windows or linux or macos or emscripten,
-            .HAVE_COPYSIGN = windows or linux or macos or emscripten,
-            .HAVE_COPYSIGNF = windows or linux or macos or emscripten,
+            .HAVE_STRTOLL = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STRTOULL = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STRTOD = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ATOI = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ATOF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STRCMP = windows or linux or macos or emscripten or android or ios,
+            .HAVE_STRNCMP = windows or linux or macos or emscripten or android or ios,
+            .HAVE_VSSCANF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_VSNPRINTF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ACOS = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ACOSF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ASIN = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ASINF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ATAN = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ATANF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ATAN2 = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ATAN2F = windows or linux or macos or emscripten or android or ios,
+            .HAVE_CEIL = windows or linux or macos or emscripten or android or ios,
+            .HAVE_CEILF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_COPYSIGN = windows or linux or macos or emscripten or android or ios,
+            .HAVE_COPYSIGNF = windows or linux or macos or emscripten or android or ios,
             .HAVE__COPYSIGN = windows,
-            .HAVE_COS = windows or linux or macos or emscripten,
-            .HAVE_COSF = windows or linux or macos or emscripten,
-            .HAVE_EXP = windows or linux or macos or emscripten,
-            .HAVE_EXPF = windows or linux or macos or emscripten,
-            .HAVE_FABS = windows or linux or macos or emscripten,
-            .HAVE_FABSF = windows or linux or macos or emscripten,
-            .HAVE_FLOOR = windows or linux or macos or emscripten,
-            .HAVE_FLOORF = windows or linux or macos or emscripten,
-            .HAVE_FMOD = windows or linux or macos or emscripten,
-            .HAVE_FMODF = windows or linux or macos or emscripten,
-            .HAVE_ISINF = windows or linux or macos or emscripten,
+            .HAVE_COS = windows or linux or macos or emscripten or android or ios,
+            .HAVE_COSF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_EXP = windows or linux or macos or emscripten or android or ios,
+            .HAVE_EXPF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_FABS = windows or linux or macos or emscripten or android or ios,
+            .HAVE_FABSF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_FLOOR = windows or linux or macos or emscripten or android or ios,
+            .HAVE_FLOORF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_FMOD = windows or linux or macos or emscripten or android or ios,
+            .HAVE_FMODF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ISINF = windows or linux or macos or emscripten or android or ios,
             .HAVE_ISINFF = (linux and !musl) or emscripten,
-            .HAVE_ISINF_FLOAT_MACRO = windows or linux or macos or emscripten,
-            .HAVE_ISNAN = windows or linux or macos or emscripten,
+            .HAVE_ISINF_FLOAT_MACRO = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ISNAN = windows or linux or macos or emscripten or android or ios,
             .HAVE_ISNANF = (linux and !musl) or emscripten,
-            .HAVE_ISNAN_FLOAT_MACRO = windows or linux or macos or emscripten,
-            .HAVE_LOG = windows or linux or macos or emscripten,
-            .HAVE_LOGF = windows or linux or macos or emscripten,
-            .HAVE_LOG10 = windows or linux or macos or emscripten,
-            .HAVE_LOG10F = windows or linux or macos or emscripten,
-            .HAVE_LROUND = windows or linux or macos or emscripten,
-            .HAVE_LROUNDF = windows or linux or macos or emscripten,
-            .HAVE_MODF = windows or linux or macos or emscripten,
-            .HAVE_MODFF = windows or linux or macos or emscripten,
-            .HAVE_POW = windows or linux or macos or emscripten,
-            .HAVE_POWF = windows or linux or macos or emscripten,
-            .HAVE_ROUND = windows or linux or macos or emscripten,
-            .HAVE_ROUNDF = windows or linux or macos or emscripten,
-            .HAVE_SCALBN = windows or linux or macos or emscripten,
-            .HAVE_SCALBNF = windows or linux or macos or emscripten,
-            .HAVE_SIN = windows or linux or macos or emscripten,
-            .HAVE_SINF = windows or linux or macos or emscripten,
-            .HAVE_SQRT = windows or linux or macos or emscripten,
-            .HAVE_SQRTF = windows or linux or macos or emscripten,
-            .HAVE_TAN = windows or linux or macos or emscripten,
-            .HAVE_TANF = windows or linux or macos or emscripten,
-            .HAVE_TRUNC = windows or linux or macos or emscripten,
-            .HAVE_TRUNCF = windows or linux or macos or emscripten,
+            .HAVE_ISNAN_FLOAT_MACRO = windows or linux or macos or emscripten or android or ios,
+            .HAVE_LOG = windows or linux or macos or emscripten or android or ios,
+            .HAVE_LOGF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_LOG10 = windows or linux or macos or emscripten or android or ios,
+            .HAVE_LOG10F = windows or linux or macos or emscripten or android or ios,
+            .HAVE_LROUND = windows or linux or macos or emscripten or android or ios,
+            .HAVE_LROUNDF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_MODF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_MODFF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_POW = windows or linux or macos or emscripten or android or ios,
+            .HAVE_POWF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ROUND = windows or linux or macos or emscripten or android or ios,
+            .HAVE_ROUNDF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_SCALBN = windows or linux or macos or emscripten or android or ios,
+            .HAVE_SCALBNF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_SIN = windows or linux or macos or emscripten or android or ios,
+            .HAVE_SINF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_SQRT = windows or linux or macos or emscripten or android or ios,
+            .HAVE_SQRTF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_TAN = windows or linux or macos or emscripten or android or ios,
+            .HAVE_TANF = windows or linux or macos or emscripten or android or ios,
+            .HAVE_TRUNC = windows or linux or macos or emscripten or android or ios,
+            .HAVE_TRUNCF = windows or linux or macos or emscripten or android or ios,
             .HAVE__FSEEKI64 = windows,
             .HAVE_FOPEN64 = (windows and !msvc) or (linux and !musl) or emscripten,
-            .HAVE_FSEEKO = (windows and !msvc) or linux or macos or emscripten,
+            .HAVE_FSEEKO = (windows and !msvc) or linux or macos or emscripten or android,
             .HAVE_FSEEKO64 = (windows and !msvc) or (linux and !musl) or emscripten,
             .HAVE_MEMFD_CREATE = linux,
             .HAVE_POSIX_FALLOCATE = linux or emscripten,
-            .HAVE_SIGACTION = linux or macos or emscripten,
-            .HAVE_SIGTIMEDWAIT = linux or emscripten,
+            .HAVE_SIGACTION = linux or macos or emscripten or ios,
+            .HAVE_SIGTIMEDWAIT = linux or emscripten or android,
             .HAVE_SA_SIGACTION = linux or macos or emscripten,
             .HAVE_ST_MTIM = linux or emscripten,
-            .HAVE_SETJMP = linux or macos or emscripten,
-            .HAVE_NANOSLEEP = linux or macos or emscripten,
-            .HAVE_GMTIME_R = linux or macos or emscripten,
-            .HAVE_LOCALTIME_R = linux or macos or emscripten,
-            .HAVE_NL_LANGINFO = linux or macos or emscripten,
-            .HAVE_SYSCONF = linux or macos or emscripten,
-            .HAVE_SYSCTLBYNAME = macos,
+            .HAVE_SETJMP = linux or macos or emscripten or ios,
+            .HAVE_NANOSLEEP = linux or macos or emscripten or ios,
+            .HAVE_GMTIME_R = linux or macos or emscripten or ios,
+            .HAVE_LOCALTIME_R = linux or macos or emscripten or ios,
+            .HAVE_NL_LANGINFO = linux or macos or emscripten or ios,
+            .HAVE_SYSCONF = linux or macos or emscripten or ios,
+            .HAVE_SYSCTLBYNAME = macos or ios,
             .HAVE_CLOCK_GETTIME = linux or emscripten,
-            .HAVE_GETPAGESIZE = linux or macos or emscripten,
+            .HAVE_GETPAGESIZE = linux or macos or emscripten or ios,
             .HAVE_ICONV = linux or emscripten,
             .SDL_USE_LIBICONV = false,
-            .HAVE_PTHREAD_SETNAME_NP = linux or macos,
+            .HAVE_PTHREAD_SETNAME_NP = linux or macos or android or ios,
             .HAVE_PTHREAD_SET_NAME_NP = false,
             .HAVE_SEM_TIMEDWAIT = linux,
             .HAVE_GETAUXVAL = linux,
             .HAVE_ELF_AUX_INFO = false,
-            .HAVE_POLL = linux or macos or emscripten,
-            .HAVE__EXIT = windows or linux or macos or emscripten,
+            .HAVE_POLL = linux or macos or emscripten or ios,
+            .HAVE__EXIT = windows or linux or macos or emscripten or android or ios,
             .HAVE_DBUS_DBUS_H = linux,
             .HAVE_FCITX = linux,
             .HAVE_IBUS_IBUS_H = linux,
             .HAVE_INOTIFY_INIT1 = linux,
             .HAVE_INOTIFY = linux,
             .HAVE_LIBUSB = linux,
-            .HAVE_O_CLOEXEC = linux or macos or emscripten,
+            .HAVE_O_CLOEXEC = linux or macos or emscripten or ios,
             .HAVE_LINUX_INPUT_H = linux,
             .HAVE_LIBUDEV_H = linux,
             .HAVE_LIBDECOR_H = linux,
@@ -279,7 +297,7 @@ pub fn build(b: *std.Build) void {
             .HAVE_TPCSHRD_H = windows,
             .HAVE_ROAPI_H = (windows and !msvc),
             .HAVE_SHELLSCALINGAPI_H = windows,
-            .USE_POSIX_SPAWN = false,
+            .USE_POSIX_SPAWN = android,
             .SDL_DEFAULT_ASSERT_LEVEL_CONFIGURED = false,
             .SDL_DEFAULT_ASSERT_LEVEL = null,
             .SDL_AUDIO_DISABLED = false,
@@ -296,12 +314,12 @@ pub fn build(b: *std.Build) void {
             .SDL_THREADS_DISABLED = (emscripten and !emscripten_pthreads),
             .SDL_AUDIO_DRIVER_ALSA = linux,
             .SDL_AUDIO_DRIVER_ALSA_DYNAMIC = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.alsa_soname}) else "",
-            .SDL_AUDIO_DRIVER_OPENSLES = false,
-            .SDL_AUDIO_DRIVER_AAUDIO = false,
-            .SDL_AUDIO_DRIVER_COREAUDIO = macos,
-            .SDL_AUDIO_DRIVER_DISK = windows or linux or macos or emscripten,
+            .SDL_AUDIO_DRIVER_OPENSLES = android,
+            .SDL_AUDIO_DRIVER_AAUDIO = android,
+            .SDL_AUDIO_DRIVER_COREAUDIO = macos or ios,
+            .SDL_AUDIO_DRIVER_DISK = windows or linux or macos or emscripten or android,
             .SDL_AUDIO_DRIVER_DSOUND = windows,
-            .SDL_AUDIO_DRIVER_DUMMY = windows or linux or macos or emscripten,
+            .SDL_AUDIO_DRIVER_DUMMY = windows or linux or macos or emscripten or android,
             .SDL_AUDIO_DRIVER_EMSCRIPTEN = emscripten,
             .SDL_AUDIO_DRIVER_HAIKU = false,
             .SDL_AUDIO_DRIVER_JACK = linux,
@@ -325,83 +343,83 @@ pub fn build(b: *std.Build) void {
             .SDL_INPUT_FBSDKBIO = false,
             .SDL_INPUT_WSCONS = false,
             .SDL_HAVE_MACHINE_JOYSTICK_H = false,
-            .SDL_JOYSTICK_ANDROID = false,
+            .SDL_JOYSTICK_ANDROID = android,
             .SDL_JOYSTICK_DINPUT = windows,
             .SDL_JOYSTICK_DUMMY = false,
             .SDL_JOYSTICK_EMSCRIPTEN = emscripten,
             .SDL_JOYSTICK_GAMEINPUT = (windows and msvc),
             .SDL_JOYSTICK_HAIKU = false,
-            .SDL_JOYSTICK_HIDAPI = windows or linux or macos,
+            .SDL_JOYSTICK_HIDAPI = windows or linux or macos or android,
             .SDL_JOYSTICK_IOKIT = macos,
             .SDL_JOYSTICK_LINUX = linux,
-            .SDL_JOYSTICK_MFI = macos,
+            .SDL_JOYSTICK_MFI = macos or ios,
             .SDL_JOYSTICK_N3DS = false,
             .SDL_JOYSTICK_PS2 = false,
             .SDL_JOYSTICK_PSP = false,
             .SDL_JOYSTICK_RAWINPUT = windows,
             .SDL_JOYSTICK_USBHID = false,
-            .SDL_JOYSTICK_VIRTUAL = windows or linux or macos or emscripten,
+            .SDL_JOYSTICK_VIRTUAL = windows or linux or macos or emscripten or android or ios,
             .SDL_JOYSTICK_VITA = false,
             .SDL_JOYSTICK_WGI = false,
             .SDL_JOYSTICK_XINPUT = windows,
-            .SDL_HAPTIC_DUMMY = emscripten,
+            .SDL_HAPTIC_DUMMY = emscripten or android or ios,
             .SDL_HAPTIC_LINUX = linux,
             .SDL_HAPTIC_IOKIT = macos,
             .SDL_HAPTIC_DINPUT = windows,
-            .SDL_HAPTIC_ANDROID = false,
+            .SDL_HAPTIC_ANDROID = android,
             .SDL_LIBUSB_DYNAMIC = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.libusb_soname}) else "",
             .SDL_UDEV_DYNAMIC = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.libudev_soname}) else "",
             .SDL_PROCESS_DUMMY = emscripten,
-            .SDL_PROCESS_POSIX = linux or macos,
+            .SDL_PROCESS_POSIX = linux or macos or android or ios,
             .SDL_PROCESS_WINDOWS = windows,
-            .SDL_SENSOR_ANDROID = false,
-            .SDL_SENSOR_COREMOTION = false,
+            .SDL_SENSOR_ANDROID = android,
+            .SDL_SENSOR_COREMOTION = ios,
             .SDL_SENSOR_WINDOWS = windows,
-            .SDL_SENSOR_DUMMY = linux or macos or emscripten,
+            .SDL_SENSOR_DUMMY = linux or macos or emscripten or ios,
             .SDL_SENSOR_VITA = false,
             .SDL_SENSOR_N3DS = false,
-            .SDL_LOADSO_DLOPEN = linux or macos or emscripten,
+            .SDL_LOADSO_DLOPEN = linux or macos or emscripten or android or ios,
             .SDL_LOADSO_DUMMY = false,
             .SDL_LOADSO_WINDOWS = windows,
             .SDL_THREAD_GENERIC_COND_SUFFIX = windows,
             .SDL_THREAD_GENERIC_RWLOCK_SUFFIX = windows,
-            .SDL_THREAD_PTHREAD = linux or macos or (emscripten and emscripten_pthreads),
-            .SDL_THREAD_PTHREAD_RECURSIVE_MUTEX = linux or macos or (emscripten and emscripten_pthreads),
-            .SDL_THREAD_PTHREAD_RECURSIVE_MUTEX_NP = false,
+            .SDL_THREAD_PTHREAD = linux or macos or (emscripten and emscripten_pthreads) or android or ios,
+            .SDL_THREAD_PTHREAD_RECURSIVE_MUTEX = linux or macos or (emscripten and emscripten_pthreads) or android or ios,
+            .SDL_THREAD_PTHREAD_RECURSIVE_MUTEX_NP = android,
             .SDL_THREAD_WINDOWS = windows,
             .SDL_THREAD_VITA = false,
             .SDL_THREAD_PSP = false,
             .SDL_THREAD_PS2 = false,
             .SDL_THREAD_N3DS = false,
-            .SDL_TIME_UNIX = linux or macos or emscripten,
+            .SDL_TIME_UNIX = linux or macos or emscripten or android or ios,
             .SDL_TIME_WINDOWS = windows,
             .SDL_TIME_VITA = false,
             .SDL_TIME_PSP = false,
             .SDL_TIME_PS2 = false,
             .SDL_TIME_N3DS = false,
             .SDL_TIMER_HAIKU = false,
-            .SDL_TIMER_UNIX = linux or macos or emscripten,
+            .SDL_TIMER_UNIX = linux or macos or emscripten or android or ios,
             .SDL_TIMER_WINDOWS = windows,
             .SDL_TIMER_VITA = false,
             .SDL_TIMER_PSP = false,
             .SDL_TIMER_PS2 = false,
             .SDL_TIMER_N3DS = false,
-            .SDL_VIDEO_DRIVER_ANDROID = false,
+            .SDL_VIDEO_DRIVER_ANDROID = android,
             .SDL_VIDEO_DRIVER_COCOA = macos,
-            .SDL_VIDEO_DRIVER_DUMMY = windows or linux or macos or emscripten,
+            .SDL_VIDEO_DRIVER_DUMMY = windows or linux or macos or emscripten or android or ios,
             .SDL_VIDEO_DRIVER_EMSCRIPTEN = emscripten,
             .SDL_VIDEO_DRIVER_HAIKU = false,
             .SDL_VIDEO_DRIVER_KMSDRM = linux,
             .SDL_VIDEO_DRIVER_KMSDRM_DYNAMIC = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.drm_soname}) else "",
             .SDL_VIDEO_DRIVER_KMSDRM_DYNAMIC_GBM = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.gbm_soname}) else "",
             .SDL_VIDEO_DRIVER_N3DS = false,
-            .SDL_VIDEO_DRIVER_OFFSCREEN = windows or linux or macos or emscripten,
+            .SDL_VIDEO_DRIVER_OFFSCREEN = windows or linux or macos or emscripten or android,
             .SDL_VIDEO_DRIVER_PS2 = false,
             .SDL_VIDEO_DRIVER_PSP = false,
             .SDL_VIDEO_DRIVER_RISCOS = false,
             .SDL_VIDEO_DRIVER_ROCKCHIP = false,
             .SDL_VIDEO_DRIVER_RPI = false,
-            .SDL_VIDEO_DRIVER_UIKIT = false,
+            .SDL_VIDEO_DRIVER_UIKIT = ios,
             .SDL_VIDEO_DRIVER_VITA = false,
             .SDL_VIDEO_DRIVER_VIVANTE = false,
             .SDL_VIDEO_DRIVER_VIVANTE_VDK = false,
@@ -436,72 +454,72 @@ pub fn build(b: *std.Build) void {
             .SDL_VIDEO_RENDER_D3D = windows,
             .SDL_VIDEO_RENDER_D3D11 = windows,
             .SDL_VIDEO_RENDER_D3D12 = windows,
-            .SDL_VIDEO_RENDER_GPU = windows or linux or macos or emscripten,
-            .SDL_VIDEO_RENDER_METAL = macos,
-            .SDL_VIDEO_RENDER_VULKAN = windows or linux or macos,
+            .SDL_VIDEO_RENDER_GPU = windows or linux or macos or emscripten or android or ios,
+            .SDL_VIDEO_RENDER_METAL = macos or ios,
+            .SDL_VIDEO_RENDER_VULKAN = windows or linux or macos or android or ios,
             .SDL_VIDEO_RENDER_OGL = windows or linux or macos,
-            .SDL_VIDEO_RENDER_OGL_ES2 = windows or linux or macos or emscripten,
+            .SDL_VIDEO_RENDER_OGL_ES2 = windows or linux or macos or emscripten or android or ios,
             .SDL_VIDEO_RENDER_PS2 = false,
             .SDL_VIDEO_RENDER_PSP = false,
             .SDL_VIDEO_RENDER_VITA_GXM = false,
-            .SDL_VIDEO_OPENGL = windows or linux or macos,
-            .SDL_VIDEO_OPENGL_ES = linux,
-            .SDL_VIDEO_OPENGL_ES2 = windows or linux or macos or emscripten,
+            .SDL_VIDEO_OPENGL = windows or linux or macos or android,
+            .SDL_VIDEO_OPENGL_ES = linux or android or ios,
+            .SDL_VIDEO_OPENGL_ES2 = windows or linux or macos or emscripten or android or ios,
             .SDL_VIDEO_OPENGL_CGL = macos,
-            .SDL_VIDEO_OPENGL_GLX = linux,
+            .SDL_VIDEO_OPENGL_GLX = linux or android,
             .SDL_VIDEO_OPENGL_WGL = windows,
-            .SDL_VIDEO_OPENGL_EGL = windows or linux or macos or emscripten,
-            .SDL_VIDEO_VULKAN = windows or linux or macos,
-            .SDL_VIDEO_METAL = macos,
+            .SDL_VIDEO_OPENGL_EGL = windows or linux or macos or emscripten or android,
+            .SDL_VIDEO_VULKAN = windows or linux or macos or android or ios,
+            .SDL_VIDEO_METAL = macos or ios,
             .SDL_GPU_D3D11 = windows,
             .SDL_GPU_D3D12 = windows,
-            .SDL_GPU_VULKAN = windows or linux or macos,
-            .SDL_GPU_METAL = macos,
-            .SDL_POWER_ANDROID = false,
+            .SDL_GPU_VULKAN = windows or linux or macos or android or ios,
+            .SDL_GPU_METAL = macos or ios,
+            .SDL_POWER_ANDROID = android,
             .SDL_POWER_LINUX = linux,
             .SDL_POWER_WINDOWS = windows,
             .SDL_POWER_MACOSX = macos,
-            .SDL_POWER_UIKIT = false,
+            .SDL_POWER_UIKIT = ios,
             .SDL_POWER_HAIKU = false,
             .SDL_POWER_EMSCRIPTEN = emscripten,
             .SDL_POWER_HARDWIRED = false,
             .SDL_POWER_VITA = false,
             .SDL_POWER_PSP = false,
             .SDL_POWER_N3DS = false,
-            .SDL_FILESYSTEM_ANDROID = false,
+            .SDL_FILESYSTEM_ANDROID = android,
             .SDL_FILESYSTEM_HAIKU = false,
-            .SDL_FILESYSTEM_COCOA = macos,
+            .SDL_FILESYSTEM_COCOA = macos or ios,
             .SDL_FILESYSTEM_DUMMY = false,
             .SDL_FILESYSTEM_RISCOS = false,
-            .SDL_FILESYSTEM_UNIX = linux,
+            .SDL_FILESYSTEM_UNIX = linux or android,
             .SDL_FILESYSTEM_WINDOWS = windows,
             .SDL_FILESYSTEM_EMSCRIPTEN = emscripten,
             .SDL_FILESYSTEM_VITA = false,
             .SDL_FILESYSTEM_PSP = false,
             .SDL_FILESYSTEM_PS2 = false,
             .SDL_FILESYSTEM_N3DS = false,
-            .SDL_STORAGE_STEAM = windows or linux or macos,
-            .SDL_FSOPS_POSIX = linux or macos or emscripten,
+            .SDL_STORAGE_STEAM = windows or linux or macos or android,
+            .SDL_FSOPS_POSIX = linux or macos or emscripten or android or ios,
             .SDL_FSOPS_WINDOWS = windows,
             .SDL_FSOPS_DUMMY = false,
-            .SDL_CAMERA_DRIVER_DUMMY = windows or linux or macos or emscripten,
+            .SDL_CAMERA_DRIVER_DUMMY = windows or linux or macos or emscripten or android or ios,
             .SDL_CAMERA_DRIVER_DISK = false,
             .SDL_CAMERA_DRIVER_V4L2 = linux,
-            .SDL_CAMERA_DRIVER_COREMEDIA = macos,
-            .SDL_CAMERA_DRIVER_ANDROID = false,
+            .SDL_CAMERA_DRIVER_COREMEDIA = macos or ios,
+            .SDL_CAMERA_DRIVER_ANDROID = android,
             .SDL_CAMERA_DRIVER_EMSCRIPTEN = emscripten,
             .SDL_CAMERA_DRIVER_MEDIAFOUNDATION = windows,
             .SDL_CAMERA_DRIVER_PIPEWIRE = linux,
             .SDL_CAMERA_DRIVER_PIPEWIRE_DYNAMIC = if (linux_deps_values) |x| b.fmt("\"{s}\"", .{x.pipewire_soname}) else "",
             .SDL_CAMERA_DRIVER_VITA = false,
-            .SDL_DIALOG_DUMMY = false,
+            .SDL_DIALOG_DUMMY = ios,
             .SDL_ALTIVEC_BLITTERS = false,
-            .DYNAPI_NEEDS_DLOPEN = linux or macos or emscripten,
+            .DYNAPI_NEEDS_DLOPEN = linux or macos or emscripten or android or ios,
             .SDL_USE_IME = linux,
             .SDL_DISABLE_WINDOWS_IME = false,
             .SDL_GDK_TEXTINPUT = false,
-            .SDL_IPHONE_KEYBOARD = false,
-            .SDL_IPHONE_LAUNCHSCREEN = false,
+            .SDL_IPHONE_KEYBOARD = ios,
+            .SDL_IPHONE_LAUNCHSCREEN = ios,
             .SDL_VIDEO_VITA_PIB = false,
             .SDL_VIDEO_VITA_PVR = false,
             .SDL_VIDEO_VITA_PVR_OGL = false,
@@ -550,7 +568,7 @@ pub fn build(b: *std.Build) void {
         .pic = pic,
     });
     const sdl_lib = b.addLibrary(.{
-        .linkage = if (emscripten) .static else preferred_linkage,
+        .linkage = if (emscripten) .static else if (android) .dynamic else preferred_linkage,
         .name = "SDL3",
         .root_module = sdl_mod,
         .version = .{
@@ -562,7 +580,7 @@ pub fn build(b: *std.Build) void {
     });
     sdl_lib.lto = lto;
 
-    sdl_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
+    if (!android) sdl_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
     sdl_mod.addCMacro("SDL_BUILD_MAJOR_VERSION", std.fmt.comptimePrint("{d}", .{version.major}));
     sdl_mod.addCMacro("SDL_BUILD_MINOR_VERSION", std.fmt.comptimePrint("{d}", .{version.minor}));
     sdl_mod.addCMacro("SDL_BUILD_MICRO_VERSION", std.fmt.comptimePrint("{d}", .{version.patch}));
@@ -589,8 +607,8 @@ pub fn build(b: *std.Build) void {
         sdl_mod.addCMacro("_REENTRANT", "1");
     }
 
-    sdl_mod.addConfigHeader(build_config_h);
-    sdl_mod.addConfigHeader(revision_h);
+    if (!android) sdl_mod.addConfigHeader(build_config_h);
+    if (!android) sdl_mod.addConfigHeader(revision_h);
     sdl_mod.addIncludePath(b.path("include"));
     sdl_mod.addIncludePath(b.path("src"));
     sdl_mod.addSystemIncludePath(b.path("src/video/khronos"));
@@ -624,10 +642,10 @@ pub fn build(b: *std.Build) void {
     if (sdl_lib.linkage.? == .dynamic) {
         sdl_c_flags.appendAssumeCapacity("-fvisibility=hidden");
     }
-    if (linux) {
+    if (linux or android) {
         sdl_c_flags.appendAssumeCapacity("-pthread");
     }
-    if (macos) {
+    if (macos or ios) {
         sdl_c_flags.appendAssumeCapacity("-pthread");
         sdl_c_flags.appendAssumeCapacity("-fobjc-arc");
     }
@@ -815,34 +833,36 @@ pub fn build(b: *std.Build) void {
         },
         .dynamic => {
             std.debug.assert(!emscripten);
-            const sdl_uclibc_mod = b.createModule(.{
-                .target = target,
-                .optimize = optimize,
-                .link_libc = true,
-                .strip = strip,
-                .sanitize_c = sanitize_c,
-                .pic = pic,
-            });
-            const sdl_uclibc_lib = b.addLibrary(.{
-                .linkage = .static,
-                .name = "SDL_uclib",
-                .root_module = sdl_uclibc_mod,
-            });
-            sdl_uclibc_lib.lto = lto;
+            if (!android) {
+                const sdl_uclibc_mod = b.createModule(.{
+                    .target = target,
+                    .optimize = optimize,
+                    .link_libc = true,
+                    .strip = strip,
+                    .sanitize_c = sanitize_c,
+                    .pic = pic,
+                });
+                const sdl_uclibc_lib = b.addLibrary(.{
+                    .linkage = .static,
+                    .name = "SDL_uclib",
+                    .root_module = sdl_uclibc_mod,
+                });
+                sdl_uclibc_lib.lto = lto;
 
-            sdl_uclibc_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
+                sdl_uclibc_mod.addCMacro("USING_GENERATED_CONFIG_H", "1");
 
-            sdl_uclibc_mod.addConfigHeader(build_config_h);
-            sdl_uclibc_mod.addConfigHeader(revision_h);
-            sdl_uclibc_mod.addIncludePath(b.path("include"));
-            sdl_uclibc_mod.addIncludePath(b.path("src"));
+                sdl_uclibc_mod.addConfigHeader(build_config_h);
+                sdl_uclibc_mod.addConfigHeader(revision_h);
+                sdl_uclibc_mod.addIncludePath(b.path("include"));
+                sdl_uclibc_mod.addIncludePath(b.path("src"));
 
-            sdl_uclibc_mod.addCSourceFiles(.{
-                .flags = &(common_c_flags ++ .{"-fvisibility=hidden"}),
-                .files = &sdl_uclibc_c_files,
-            });
+                sdl_uclibc_mod.addCSourceFiles(.{
+                    .flags = &(common_c_flags ++ .{"-fvisibility=hidden"}),
+                    .files = &sdl_uclibc_c_files,
+                });
 
-            sdl_mod.linkLibrary(sdl_uclibc_lib);
+                sdl_mod.linkLibrary(sdl_uclibc_lib);
+            }
         },
     }
 
@@ -959,7 +979,7 @@ pub fn build(b: *std.Build) void {
             sdl_mod.addWin32ResourceFile(.{ .file = b.path("src/core/windows/version.rc") });
         }
     }
-    if (linux) {
+    if (linux and !android) {
         sdl_mod.addCSourceFiles(.{
             .flags = sdl_c_flags.items,
             .files = &.{
@@ -1091,6 +1111,119 @@ pub fn build(b: *std.Build) void {
             });
         }
     }
+
+    if (android) {
+        try sdl_c_flags.append(b.allocator, "-fno-sanitize=undefined");
+
+        sdl_mod.addCSourceFiles(.{
+            .flags = sdl_c_flags.items,
+            .files = &.{
+                "src/core/android/SDL_android.c",
+
+                "src/audio/openslES/SDL_openslES.c",
+                "src/audio/aaudio/SDL_aaudio.c",
+
+                "src/gpu/vulkan/SDL_gpu_vulkan.c",
+                "src/main/generic/SDL_sysmain_callbacks.c",
+
+                "src/haptic/android/SDL_syshaptic.c",
+
+                "src/joystick/hidapi/SDL_hidapi_combined.c",
+                "src/joystick/hidapi/SDL_hidapi_gamecube.c",
+                "src/joystick/hidapi/SDL_hidapi_luna.c",
+                "src/joystick/hidapi/SDL_hidapi_ps3.c",
+                "src/joystick/hidapi/SDL_hidapi_ps4.c",
+                "src/joystick/hidapi/SDL_hidapi_ps5.c",
+                "src/joystick/hidapi/SDL_hidapi_rumble.c",
+                "src/joystick/hidapi/SDL_hidapi_shield.c",
+                "src/joystick/hidapi/SDL_hidapi_stadia.c",
+                "src/joystick/hidapi/SDL_hidapi_steam.c",
+                "src/joystick/hidapi/SDL_hidapi_steam_hori.c",
+                "src/joystick/hidapi/SDL_hidapi_steamdeck.c",
+                "src/joystick/hidapi/SDL_hidapi_switch.c",
+                "src/joystick/hidapi/SDL_hidapi_wii.c",
+                "src/joystick/hidapi/SDL_hidapi_xbox360.c",
+                "src/joystick/hidapi/SDL_hidapi_xbox360w.c",
+                "src/joystick/hidapi/SDL_hidapi_xboxone.c",
+                "src/joystick/hidapi/SDL_hidapijoystick.c",
+                "src/joystick/android/SDL_sysjoystick.c",
+                "src/joystick/virtual/SDL_virtualjoystick.c",
+
+                "src/storage/generic/SDL_genericstorage.c",
+
+                "src/locale/android/SDL_syslocale.c",
+                "src/misc/android/SDL_sysurl.c",
+                "src/power/android/SDL_syspower.c",
+                "src/filesystem/android/SDL_sysfilesystem.c",
+                "src/filesystem/posix/SDL_sysfsops.c",
+                "src/camera/android/SDL_camera_android.c",
+                "src/sensor/android/SDL_androidsensor.c",
+
+                "src/process/posix/SDL_posixprocess.c",
+                "src/process/dummy/SDL_dummyprocess.c",
+
+                "src/dialog/android/SDL_androiddialog.c",
+
+                "src/time/unix/SDL_systime.c",
+
+                "src/timer/unix/SDL_systimer.c",
+                "src/loadso/dlopen/SDL_sysloadso.c",
+
+                "src/thread/pthread/SDL_syscond.c",
+                "src/thread/pthread/SDL_sysmutex.c",
+                "src/thread/pthread/SDL_syssem.c",
+                "src/thread/pthread/SDL_systhread.c",
+                "src/thread/pthread/SDL_systls.c",
+                "src/thread/pthread/SDL_sysrwlock.c",
+
+                "src/tray/unix/SDL_tray.c",
+
+                "src/video/android/SDL_androidclipboard.c",
+                "src/video/android/SDL_androidevents.c",
+                "src/video/android/SDL_androidgl.c",
+                "src/video/android/SDL_androidkeyboard.c",
+                "src/video/android/SDL_androidmessagebox.c",
+                "src/video/android/SDL_androidmouse.c",
+                "src/video/android/SDL_androidtouch.c",
+                "src/video/android/SDL_androidvideo.c",
+                "src/video/android/SDL_androidpen.c",
+                "src/video/android/SDL_androidvulkan.c",
+                "src/video/android/SDL_androidwindow.c",
+            },
+        });
+        sdl_mod.addCSourceFiles(.{
+            .root = b.path(""),
+            .files = &[_][]const u8{
+                "src/hidapi/android/hid.cpp",
+            },
+            .flags = &.{"-std=c++11"},
+        });
+        sdl_mod.link_libcpp = true;
+
+        // This is needed for "src/render/opengles/SDL_render_gles.c" to compile
+        sdl_mod.addCMacro("GL_GLEXT_PROTOTYPES", "1");
+
+        // Add Java files to dependency
+        const java_dir = b.path("android/java");
+        const java_files: []const []const u8 = &.{
+            "HIDDevice.java",
+            "HIDDeviceBLESteamController.java",
+            "HIDDeviceManager.java",
+            "HIDDeviceUSB.java",
+            "SDL.java",
+            "SDLActivity.java",
+            "SDLAudioManager.java",
+            "SDLControllerManager.java",
+            "SDLDummyEdit.java",
+            "SDLInputConnection.java",
+            "SDLSurface.java",
+        };
+        const java_write_files = b.addNamedWriteFiles("sdljava");
+        for (java_files) |java_file_basename| {
+            _ = java_write_files.addCopyFile(java_dir.path(b, java_file_basename), java_file_basename);
+        }
+    }
+
     if (macos) {
         sdl_mod.addCSourceFiles(.{
             .flags = sdl_c_flags.items,
@@ -1172,6 +1305,62 @@ pub fn build(b: *std.Build) void {
             },
         });
     }
+
+    if (ios) {
+        sdl_mod.addCSourceFiles(.{
+            .flags = sdl_c_flags.items,
+            .files = &.{
+                "src/audio/coreaudio/SDL_coreaudio.m",
+                "src/camera/coremedia/SDL_camera_coremedia.m",
+                "src/camera/dummy/SDL_camera_dummy.c",
+                "src/dialog/dummy/SDL_dummydialog.c",
+                "src/filesystem/posix/SDL_sysfsops.c",
+                "src/filesystem/cocoa/SDL_sysfilesystem.m",
+                "src/gpu/metal/SDL_gpu_metal.m",
+                "src/gpu/vulkan/SDL_gpu_vulkan.c",
+                "src/haptic/dummy/SDL_syshaptic.c",
+                "src/hidapi/ios/hid.m",
+                "src/joystick/apple/SDL_mfijoystick.m",
+                "src/joystick/virtual/SDL_virtualjoystick.c",
+                "src/loadso/dlopen/SDL_sysloadso.c",
+                "src/locale/macos/SDL_syslocale.m",
+                "src/main/ios/SDL_sysmain_callbacks.m",
+                "src/misc/ios/SDL_sysurl.m",
+                "src/power/uikit/SDL_syspower.m",
+                "src/render/metal/SDL_render_metal.m",
+                "src/sensor/coremotion/SDL_coremotionsensor.m",
+                "src/sensor/dummy/SDL_dummysensor.c",
+                "src/storage/generic/SDL_genericstorage.c",
+                "src/thread/pthread/SDL_systhread.c",
+                "src/thread/pthread/SDL_sysmutex.c",
+                "src/thread/pthread/SDL_syscond.c",
+                "src/thread/pthread/SDL_sysrwlock.c",
+                "src/thread/pthread/SDL_systls.c",
+                "src/thread/pthread/SDL_syssem.c",
+                "src/tray/dummy/SDL_tray.c",
+                "src/time/unix/SDL_systime.c",
+                "src/timer/unix/SDL_systimer.c",
+                "src/video/dummy/SDL_nullevents.c",
+                "src/video/dummy/SDL_nullframebuffer.c",
+                "src/video/dummy/SDL_nullvideo.c",
+                "src/video/uikit/SDL_uikitappdelegate.m",
+                "src/video/uikit/SDL_uikitclipboard.m",
+                "src/video/uikit/SDL_uikitevents.m",
+                "src/video/uikit/SDL_uikitmessagebox.m",
+                "src/video/uikit/SDL_uikitmetalview.m",
+                "src/video/uikit/SDL_uikitmodes.m",
+                "src/video/uikit/SDL_uikitopengles.m",
+                "src/video/uikit/SDL_uikitopenglview.m",
+                "src/video/uikit/SDL_uikitpen.m",
+                "src/video/uikit/SDL_uikitvideo.m",
+                "src/video/uikit/SDL_uikitview.m",
+                "src/video/uikit/SDL_uikitviewcontroller.m",
+                "src/video/uikit/SDL_uikitvulkan.m",
+                "src/video/uikit/SDL_uikitwindow.m",
+            },
+        });
+    }
+
     if (emscripten) {
         sdl_mod.addCSourceFiles(.{
             .flags = sdl_c_flags.items,
@@ -1249,6 +1438,15 @@ pub fn build(b: *std.Build) void {
         sdl_lib.linker_allow_undefined_version = true;
     }
 
+    if (android) {
+        sdl_mod.linkSystemLibrary("dl", .{});
+        sdl_mod.linkSystemLibrary("GLESv1_CM", .{});
+        sdl_mod.linkSystemLibrary("GLESv2", .{});
+        sdl_mod.linkSystemLibrary("OpenSLES", .{});
+        sdl_mod.linkSystemLibrary("log", .{});
+        sdl_mod.linkSystemLibrary("android", .{});
+    }
+
     if (windows) {
         sdl_mod.linkSystemLibrary("kernel32", .{});
         sdl_mod.linkSystemLibrary("user32", .{});
@@ -1283,6 +1481,23 @@ pub fn build(b: *std.Build) void {
         sdl_mod.linkFramework("Metal", .{});
         sdl_mod.linkFramework("QuartzCore", .{});
         sdl_mod.linkFramework("CoreHaptics", .{ .weak = true });
+    }
+
+    if (ios) {
+        sdl_mod.linkFramework("Foundation", .{});
+        sdl_mod.linkFramework("CoreVideo", .{});
+        sdl_mod.linkFramework("CoreMedia", .{});
+        sdl_mod.linkFramework("CoreAudio", .{});
+        sdl_mod.linkFramework("CoreMotion", .{});
+        sdl_mod.linkFramework("CoreGraphics", .{});
+        sdl_mod.linkFramework("AVFoundation", .{});
+        sdl_mod.linkFramework("AudioToolbox", .{});
+        sdl_mod.linkFramework("GameController", .{});
+        sdl_mod.linkFramework("CoreHaptics", .{ .weak = true });
+        sdl_mod.linkFramework("UIKit", .{});
+        sdl_mod.linkFramework("OpenGLES", .{});
+        sdl_mod.linkFramework("Metal", .{});
+        sdl_mod.linkFramework("QuartzCore", .{});
     }
 
     sdl_lib.installHeadersDirectory(b.path("include/SDL3"), "SDL3", .{
@@ -1329,11 +1544,15 @@ pub fn build(b: *std.Build) void {
     });
     sdl_test_lib.lto = lto;
 
-    sdl_test_mod.addConfigHeader(build_config_h);
-    sdl_test_mod.addConfigHeader(revision_h);
+    if (!android) sdl_test_mod.addConfigHeader(build_config_h);
+    if (!android) sdl_test_mod.addConfigHeader(revision_h);
     sdl_test_mod.addIncludePath(b.path("include"));
     if (system_include_path) |path| {
         sdl_test_mod.addSystemIncludePath(path);
+    }
+
+    if (android) {
+        sdl_mod.addIncludePath(b.path("include/build_config/"));
     }
 
     sdl_test_mod.addCSourceFiles(.{
