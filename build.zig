@@ -1220,7 +1220,7 @@ pub fn build(b: *std.Build) !void {
         };
         const java_write_files = b.addNamedWriteFiles("sdljava");
         for (java_files) |java_file_basename| {
-           std.debug.print("Java File: {s}\n", .{java_dir.path(b, java_file_basename)});
+            std.debug.print("Java File: {s}\n", .{java_dir.path(b, java_file_basename).getPath(b)});
             _ = java_write_files.addCopyFile(java_dir.path(b, java_file_basename), java_file_basename);
         }
     }
